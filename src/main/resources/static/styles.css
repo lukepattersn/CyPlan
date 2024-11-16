@@ -1,0 +1,77 @@
+.header {
+    background-color: #C8102E;
+    padding: 10px;
+    text-align: left;
+    border-style: none;
+    width: 100%;
+}
+
+.logo {
+    width: 5em;
+    height: auto;
+    padding: 5px;
+    text-align: center;
+
+}
+.CyPlan span {
+    color: #ffffff;
+    font-family: Arial, serif;
+    font-size: 30pt;
+}
+
+.CyPlan span:nth-child(n+3) {
+    color: #F1BE48;
+}
+
+.content-wrapper {
+    margin: 0 auto;
+    max-width: 100%;
+    padding: 10px 10%;
+    box-sizing: border-box;
+}
+
+body{
+    min-height: 100vh;
+}
+
+.footer {
+    background-color: #333333;
+    color: white;
+    text-align: center;
+    padding: 15px;
+    margin-top: auto;
+    width: 100%;
+}
+
+/* Responsive for Mobile */
+@media (max-width: 768px) {
+    .CyPlan span {
+        font-size: 24pt;
+    }
+
+    .logo {
+        width: 4em;
+    }
+
+    .content-wrapper {
+        padding: 10px 5%;
+    }
+}
+
+@media (max-width: 480px) {
+    .header {
+        padding: 5px;
+    }
+
+    .CyPlan span {
+        font-size: 20pt;
+    }
+
+    .logo {
+        width: 3em;
+    }
+
+    .content-wrapper {
+        padding: 5px 2%;
+    }
+}
