@@ -9,6 +9,12 @@ public class ApiService {
     public String fetchDepartments(String academicPeriod) {
         RestTemplate restTemplate = new RestTemplate();
         String url = "https://api.classes.iastate.edu/api/departments?academicPeriod=" + academicPeriod;
-        return restTemplate.getForObject(url, String.class);
+        try {
+            return restTemplate.getForObject(url, String.class);
+        } catch (Exception e) {
+            System.err.println("Error fetching departments from API: " + e.getMessage());
+            e.printStackTrace();
+            return "Error fetching departments. Please check the logs for details.";
+        }
     }
 }

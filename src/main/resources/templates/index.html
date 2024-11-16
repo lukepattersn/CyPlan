@@ -1,10 +1,14 @@
 <!DOCTYPE html>
-<html>
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Class Scheduler</title>
+    <title>CyPlan</title>
 </head>
 <body>
-<h1>Welcome to Class Scheduler!</h1>
+<h1>Welcome to CyPlan!</h1>
 <p>This is the homepage for the project.</p>
+
+<h2>Departments</h2>
+<pre th:text="${departments}"></pre>
+
 </body>
 </html>
