@@ -1,6 +1,8 @@
 package com.schedulebuilder.class_scheduler.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.schedulebuilder.class_scheduler.model.CourseSearchRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +12,15 @@ import org.springframework.http.HttpMethod;
 
 @Service
 public class ApiService {
+
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
+
+    @Autowired
+    public ApiService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+        this.restTemplate = restTemplate;
+        this.objectMapper = objectMapper;
+    }
 
     // This method calls the api to get all the departments
     public String fetchDepartments(String academicPeriod) {
@@ -31,6 +42,7 @@ public class ApiService {
 
         // create the payload using the CourseSearchRequest class
         CourseSearchRequest requestPayload = new CourseSearchRequest(academicPeriodId, department, courseId);
+        System.out.println(requestPayload.toString());
 
         // set headers to specify JSON content
         HttpHeaders headers = new HttpHeaders();

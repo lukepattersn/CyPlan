@@ -95,22 +95,45 @@ public class HomeController {
 //    }
 
     // test method for testing api call, returns raw json
-    @PostMapping("/search-courses")
-    @ResponseBody // Ensures the response is returned as raw JSON, not a view
-    public String searchCourses(@RequestBody CourseSearchRequest courseSearchRequest) {
+    @PostMapping("/")
+    public String searchCourses(
+            @RequestParam String department,
+            @RequestParam String courseId,
+            @RequestParam(required = false, defaultValue = "ACADEMIC_PERIOD-2025Spring") String academicPeriodId,
+            Model model) {
         try {
-            // Log the incoming payload
-            System.out.println("Received Payload: " + courseSearchRequest);
+            // Fetch the raw JSON response for the selected course
+            String coursesJson = apiService.fetchCourses(academicPeriodId, department, courseId);
 
-            // Call the ApiService to fetch courses
-            return apiService.fetchCourses(
-                    courseSearchRequest.getAcademicPeriodId(),
-                    courseSearchRequest.getDepartment(),
-                    courseSearchRequest.getCourseId()
-            );
+            // Log the fetched course JSON for debugging
+            System.out.println("Fetched Courses JSON: " + coursesJson);
+
+            // Add the raw JSON directly to the model to be displayed
+            model.addAttribute("courseSections", coursesJson);
+
+            // Fetch and populate the departments for the dropdown
+            String departmentsJson = apiService.fetchDepartments(academicPeriodId);
+            ObjectMapper objectMapper = new ObjectMapper();
+
+            // Parse and extract departments into a list
+            JsonNode rootNode = objectMapper.readTree(departmentsJson);
+            JsonNode departmentsNode = rootNode.path("data");
+            List<String> departments = new ArrayList<>();
+            if (departmentsNode.isArray()) {
+                for (JsonNode departmentNode : departmentsNode) {
+                    departments.add(departmentNode.asText());
+                }
+            }
+            model.addAttribute("departments", departments);
         } catch (Exception e) {
+            // Handle errors gracefully
+            model.addAttribute("courseSections", "Error fetching course sections. Please try again later.");
+            model.addAttribute("departments", Collections.singletonList("Error fetching departments."));
             e.printStackTrace();
-            return "{\"error\": \"Error fetching courses. Please try again later.\"}";
         }
+
+        return "index"; // Render the same index.html template with updated data
     }
+
+
 }
