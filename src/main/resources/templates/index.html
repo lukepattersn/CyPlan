@@ -28,10 +28,11 @@
     </div>
 </header>
 
-<!-- Flash Message -->
-<div id="flashMessage" class="alert alert-danger text-center d-none m-0" role="alert" style="width: 100%; border-radius: 0;">
-    No sections found for the provided course ID.
-</div>
+<!-- Flash Messages -->
+<div th:if="${errorMessage}" id="flashMessage" class="alert alert-danger text-center m-0" role="alert"
+     style="width: 100%; border-radius: 0;" th:text="${errorMessage}"></div>
+<div th:if="${successMessage}" id="flashMessage" class="alert alert-success text-center m-0" role="alert"
+     style="width: 100%; border-radius: 0;" th:text="${successMessage}"></div>
 
 <div class="container mt-5 content-wrapper">
     <main>
@@ -70,17 +71,16 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // Flash message handling
         const flashMessage = document.getElementById('flashMessage');
-
-        // Display flash message if it contains text
-        if (flashMessage.textContent.trim() !== "") {
-            flashMessage.classList.remove('d-none');
+        if (flashMessage) {
             setTimeout(() => {
                 flashMessage.classList.add('fade');
                 setTimeout(() => flashMessage.remove(), 500);
             }, 5000); // Show for 5 seconds
         }
 
+        // FullCalendar setup
         const calendarEl = document.getElementById('calendar');
         const calendar = new FullCalendar.Calendar(calendarEl, {
             timeZone: 'UTC',

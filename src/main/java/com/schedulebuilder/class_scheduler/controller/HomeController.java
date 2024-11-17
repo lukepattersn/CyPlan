@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
  * HomeController handles user requests and connects them to the ApiService.
@@ -101,12 +102,13 @@ public class HomeController {
             @RequestParam String department,
             @RequestParam String courseId,
             @RequestParam(required = false, defaultValue = "ACADEMIC_PERIOD-2025Spring") String academicPeriodId,
+            RedirectAttributes redirectAttributes,
             Model model) {
         try {
             // Fetch the raw JSON response for the selected course
             String coursesJson = apiService.fetchCourses(academicPeriodId, department, courseId);
 
-            // Use ObjectMapper to parse the JSON response and extract the "sections" array
+            // Parse JSON to check for sections
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode rootNode = objectMapper.readTree(coursesJson);
             JsonNode dataNode = rootNode.path("data");
@@ -117,22 +119,20 @@ public class HomeController {
                     JsonNode sectionsNode = courseNode.path("sections");
                     if (sectionsNode.isArray()) {
                         for (JsonNode sectionNode : sectionsNode) {
-                            String meetingPatterns = sectionNode.path("meetingPatterns").asText(); // e.g., "TR | 1:10 PM - 2:00 PM"
+                            // Logic to process section details (same as before)
+                            String meetingPatterns = sectionNode.path("meetingPatterns").asText();
                             int openSeats = sectionNode.path("openSeats").asInt();
                             String instructor = sectionNode.path("instructor").asText();
                             String courseIdParsed = sectionNode.path("courseId").asText();
 
-                            // Parse meetingPatterns into daysOfTheWeek, timeStart, and timeEnd
                             String[] meetingParts = meetingPatterns.split("\\|");
                             String daysOfTheWeek = meetingParts[0].trim();
                             String[] times = meetingParts[1].split("-");
                             String timeStart = times[0].trim();
                             String timeEnd = times[1].trim();
 
-                            // Convert daysOfTheWeek to full names
                             daysOfTheWeek = convertDaysOfWeek(daysOfTheWeek);
 
-                            // Create Section object
                             Section section = new Section(daysOfTheWeek, openSeats, instructor, courseIdParsed, timeStart, timeEnd);
                             sections.add(section);
                         }
@@ -140,10 +140,14 @@ public class HomeController {
                 }
             }
 
-            // Add the extracted sections to the model
-            model.addAttribute("courseSections", sections.isEmpty() ? "No sections found." : sections);
+            // If no sections found, set flash message
+            if (sections.isEmpty()) {
+                redirectAttributes.addFlashAttribute("errorMessage", "No sections found for the provided course ID.");
+            } else {
+                redirectAttributes.addFlashAttribute("successMessage", "Course sections fetched successfully.");
+            }
 
-            // Re-add departments to keep the dropdown populated
+            // Add departments for the dropdown
             String departmentsJson = apiService.fetchDepartments(academicPeriodId);
             JsonNode departmentsRootNode = objectMapper.readTree(departmentsJson);
             JsonNode departmentsNode = departmentsRootNode.path("data");
@@ -154,22 +158,16 @@ public class HomeController {
                     departments.add(departmentNode.asText());
                 }
             }
-
-            // Print sections to the console
-            for (Section section : sections) {
-                System.out.println(section);
-            }
-
             model.addAttribute("departments", departments);
         } catch (Exception e) {
-            // Handle errors gracefully
-            model.addAttribute("courseSections", "Error fetching course sections. Please try again later.");
-            model.addAttribute("departments", Collections.singletonList("Error fetching departments."));
+            redirectAttributes.addFlashAttribute("errorMessage", "Error fetching course sections. Please try again.");
             e.printStackTrace();
         }
 
-        return "index"; // Render the same index.html template with updated data
+        // Redirect to prevent form resubmission
+        return "redirect:/";
     }
+
 
     private String convertDaysOfWeek(String shorthand) {
         shorthand = shorthand.toUpperCase();
