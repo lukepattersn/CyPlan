@@ -16,8 +16,10 @@
 
     <!-- Pass Courses and Selected Sections to JavaScript -->
     <script th:inline="javascript">
+        /*<![CDATA[*/
         var initialData = /*[[${courses}]]*/ [];
         var selectedSections = /*[[${selectedSections}]]*/ [];
+        /*]]>*/
     </script>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -35,17 +37,20 @@
     </div>
 </header>
 
+<!-- Flash Messages -->
 <div th:if="${errorMessage}" id="errorMessage" class="alert alert-danger text-center m-0" role="alert"
      style="width: 100%; border-radius: 0;" th:text="${errorMessage}"></div>
 <div th:if="${successMessage}" id="successMessage" class="alert alert-success text-center m-0" role="alert"
      style="width: 100%; border-radius: 0;" th:text="${successMessage}"></div>
 
+<!-- Vue.js App Root Element -->
 <div id="app" class="container mt-5 content-wrapper">
     <main>
         <h1 class="mb-4">Welcome to CyPlan!</h1>
         <p>Class planner for ISU students to simplify your schedule planning because workdays make everything difficult.</p>
 
         <div class="mb-5">
+            <!-- Course Addition Form -->
             <form action="/addCourse" method="POST" id="add-course-form">
                 <div class="mb-3">
                     <label class="form-label">Department</label>
@@ -61,6 +66,7 @@
                 <button type="submit" class="btn btn-primary">Add Course</button>
             </form>
 
+            <!-- Generate Schedules and Next Schedule buttons -->
             <div class="mt-3">
                 <form action="/generateSchedules" method="GET" class="d-inline">
                     <button type="submit" class="btn btn-success">Generate Schedules</button>
@@ -70,21 +76,27 @@
                 </form>
             </div>
 
+            <!-- List of Added Courses -->
             <div v-if="courses.length > 0" class="mt-5">
                 <h2 class="mb-4">Your Courses</h2>
                 <div class="row">
+                    <!-- Iterate over each course -->
                     <div v-for="(course, courseIndex) in courses" :key="courseIndex" class="col-md-6 mb-4">
                         <div class="card h-100">
                             <div class="card-body">
+                                <!-- Course Title -->
                                 <h4 class="card-title">{{ course.courseId }}: {{ course.courseName }}</h4>
                                 <hr class="line-break">
+                                <!-- Course Description -->
                                 <p class="card-text">{{ course.description }}</p>
                             </div>
+                            <!-- Sections List -->
                             <div class="card-footer">
                                 <button type="button" class="btn btn-secondary" @click="toggleSections(course)">
                                     {{ course.showSections ? 'Hide Sections' : 'Show Sections' }}
                                 </button>
                                 <ul v-show="course.showSections" class="list-group list-group-flush section-list mt-2">
+                                    <!-- Iterate over each section within the current course -->
                                     <li v-for="(section, sectionIndex) in course.sections" :key="sectionIndex" class="list-group-item">
                                         <p>
                                             <strong>Instructor:</strong> {{ section.instructor }}<br>
@@ -98,9 +110,13 @@
                             </div>
                         </div>
                     </div>
+                    <!-- End of Course Card -->
                 </div>
+                <!-- End of Row -->
             </div>
 
+
+            <!-- Display Message if no courses are found -->
             <div th:if="${courses.size() == 0}" class="mt-4">
                 <p>No courses to display. Please add courses using the form above.</p>
             </div>
@@ -119,10 +135,14 @@
     </div>
 </footer>
 
+<!-- Include Vue.js via CDN -->
 <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+<!-- Include FullCalendar JS -->
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
+<!-- Bootstrap JS Bundle (Includes Popper) -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
+<!-- Vue.js App Script -->
 <script>
     const { createApp } = Vue;
     const { Calendar } = FullCalendar;
@@ -153,8 +173,8 @@
                             center: 'title',
                             right: ''
                         },
-                        firstDay: 1,
-                        hiddenDays: [0, 6],
+                        firstDay: 1, // Monday
+                        hiddenDays: [0, 6], // Hide Sunday and Saturday
                         allDaySlot: false,
                         slotMinTime: '06:00:00',
                         slotMaxTime: '22:00:00',
@@ -174,6 +194,7 @@
                 const events = [];
                 sections.forEach(section => {
                     const dayIndices = this.convertDaysToIndices(section.daysOfTheWeek);
+                    // Skip sections with invalid times
                     if (section.timeStart === 'N/A' || section.timeEnd === 'N/A') {
                         return;
                     }
@@ -182,8 +203,8 @@
                         daysOfWeek: dayIndices,
                         startTime: this.convertTimeFormat(section.timeStart),
                         endTime: this.convertTimeFormat(section.timeEnd),
-                        startRecur: '2024-08-21',
-                        endRecur: '2024-12-15',
+                        startRecur: '2024-08-21', // Adjust to your academic period start date
+                        endRecur: '2024-12-15',   // Adjust to your academic period end date
                     });
                 });
                 return events;
@@ -207,8 +228,10 @@
                 return days;
             },
             convertTimeFormat(timeStr) {
+                // Handle cases where timeStr might be empty or invalid
                 if (!timeStr || timeStr === 'N/A') return null;
 
+                // Convert time from "h:mm A" format to "HH:mm:ss" format
                 const [time, modifier] = timeStr.split(' ');
                 let [hours, minutes] = time.split(':');
 
@@ -219,6 +242,7 @@
                     hours = '00';
                 }
 
+                // Pad hours and minutes with leading zeros if necessary
                 hours = String(hours).padStart(2, '0');
                 minutes = String(minutes).padStart(2, '0');
                 return `${hours}:${minutes}:00`;
