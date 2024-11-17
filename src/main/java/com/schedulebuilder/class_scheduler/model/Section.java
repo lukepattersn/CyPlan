@@ -8,6 +8,7 @@ public class Section {
     private String timeStart; // e.g., "1:10 PM"
     private String timeEnd;   // e.g., "2:00 PM"
     private String sectionNumber; // e.g., 1, 2, 3, A, B, C
+    private String description; // Course description
 
     // Constructor
     public Section(String daysOfTheWeek, int openSeats, String instructor, String courseId, String timeStart, String timeEnd, String sectionNumber) {
@@ -77,6 +78,14 @@ public class Section {
         this.sectionNumber = sectionNumber;
     }
 
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
     @Override
     public String toString() {
         return "Section{" +
@@ -87,6 +96,7 @@ public class Section {
                 ", timeStart='" + timeStart + '\'' +
                 ", timeEnd='" + timeEnd + '\'' +
                 ", sectionNumber='" + sectionNumber + '\'' +
+                ", description='" + description + '\'' +
                 '}';
     }
 }

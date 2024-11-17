@@ -1,15 +1,19 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CyPlan</title>
     <link rel="icon" href="/images/CyPlan_Logo.png">
 
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom Styles -->
     <link rel="stylesheet" href="/styles.css">
 
+    <!-- jQuery (Optional, if needed for other functionalities) -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- FullCalendar -->
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -37,17 +41,18 @@
 <div class="container mt-5 content-wrapper">
     <main>
         <h1 class="mb-4">Welcome to CyPlan!</h1>
-        <p>Class planner for ISU students to simplify your schedule planning because workday makes everything difficult.</p>
+        <p>Class planner for ISU students to simplify your schedule planning because workdays make everything difficult.</p>
 
         <div class="mb-5">
             <form action="/" method="POST">
                 <div class="mb-3">
-                    <h3>Add your courses</h3>
+                    <h3>Add Your Courses</h3>
                     <hr class="line-break">
                     <label for="department" class="form-label">Department</label>
-                    <select id="department" name="department" class="form-control">
+                    <select id="department" name="department" class="form-select" required>
                         <option value="" disabled selected>Select a Department</option>
-                        <option th:each="dept : ${departments}" th:value="${dept}" th:text="${dept}"></option>
+                        <option th:each="dept : ${departments}" th:value="${dept}" th:text="${dept}"
+                                th:selected="${dept == selectedDepartment}"></option>
                     </select>
                 </div>
 
@@ -57,10 +62,53 @@
                 </div>
                 <button type="submit" class="btn btn-primary">Submit</button>
             </form>
+
+            <!-- Title for Courses Section -->
+            <div th:if="${courses.size() > 0}" class="mt-5">
+                <h2 class="mb-4">Available Courses</h2>
+                <div class="row">
+                    <!-- Iterate over each course -->
+                    <div th:each="course : ${courses}" class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <!-- Course Title -->
+                                <h4 class="card-title" th:text="${course.courseName}">Course Name</h4>
+                                <!-- Course Description -->
+                                <p class="card-text" th:text="${course.description}">Course Description</p>
+                            </div>
+                            <!-- Sections List -->
+                            <div class="card-footer">
+                                <h6>Sections:</h6>
+                                <ul class="list-group list-group-flush">
+                                    <!-- Iterate over each section within the current course -->
+                                    <li th:each="section : ${course.sections}" class="list-group-item">
+                                        <p>
+                                            <strong>Instructor:</strong> <span th:text="${section.instructor}">Instructor Name</span><br>
+                                            <strong>Days:</strong> <span th:text="${section.daysOfTheWeek}">Days</span><br>
+                                            <strong>Time:</strong> <span th:text="${section.timeStart}"></span> - <span th:text="${section.timeEnd}">End Time</span><br>
+                                            <strong>Open Seats:</strong> <span th:text="${section.openSeats}">0</span><br>
+                                            <strong>Section Number:</strong> <span th:text="${section.sectionNumber}">1</span>
+                                        </p>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- End of Course Card -->
+                </div>
+                <!-- End of Row -->
+            </div>
+            <!-- End of Courses Section -->
+
+            <!-- Display Message if no courses are found -->
+            <div th:if="${courses.size() == 0}" class="mt-4">
+                <p>No courses to display. Please search for courses above.</p>
+            </div>
         </div>
     </main>
 
     <div id='calendar'></div>
+
 </div>
 
 <footer class="footer mt-auto">
@@ -68,6 +116,9 @@
         <p class="mb-0">© 2024 CyPlan. All rights reserved.</p>
     </div>
 </footer>
+
+<!-- Bootstrap JS Bundle (Includes Popper) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -82,46 +133,48 @@
 
         // FullCalendar setup
         const calendarEl = document.getElementById('calendar');
-        const calendar = new FullCalendar.Calendar(calendarEl, {
-            timeZone: 'UTC',
-            initialView: 'timeGridWeek',
-            headerToolbar: false,
-            firstDay: 1,
-            hiddenDays: [0, 6],
-            allDaySlot: false,
-            slotMinTime: '06:00:00',
-            slotMaxTime: '22:00:00',
-            views: {
-                timeGridWeek: {
-                    dayHeaderFormat: { weekday: 'long' },
-                    duration: { days: 6 },
-                    buttonText: 'Workweek'
-                }
-            },
-            events: [
-                {
-                    title: 'COMS 2280: Data Structures',
-                    start: '2024-11-20T10:00:00',
-                    end: '2024-11-20T11:30:00'
+        if (calendarEl) {
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+                timeZone: 'UTC',
+                initialView: 'timeGridWeek',
+                headerToolbar: false,
+                firstDay: 1,
+                hiddenDays: [0, 6],
+                allDaySlot: false,
+                slotMinTime: '06:00:00',
+                slotMaxTime: '22:00:00',
+                views: {
+                    timeGridWeek: {
+                        dayHeaderFormat: { weekday: 'long' },
+                        duration: { days: 6 },
+                        buttonText: 'Workweek'
+                    }
                 },
-                {
-                    title: 'Math 101',
-                    start: '2024-11-21T09:00:00',
-                    end: '2024-11-21T10:00:00'
-                },
-                {
-                    title: 'History 201',
-                    start: '2024-11-21T14:00:00',
-                    end: '2024-11-21T15:00:00'
-                }
-            ],
-            editable: false,
-            selectable: false,
-            dayHeaders: true,
-            nowIndicator: false
-        });
+                events: [
+                    {
+                        title: 'COMS 2280: Data Structures',
+                        start: '2024-11-20T10:00:00',
+                        end: '2024-11-20T11:30:00'
+                    },
+                    {
+                        title: 'Math 101',
+                        start: '2024-11-21T09:00:00',
+                        end: '2024-11-21T10:00:00'
+                    },
+                    {
+                        title: 'History 201',
+                        start: '2024-11-21T14:00:00',
+                        end: '2024-11-21T15:00:00'
+                    }
+                ],
+                editable: false,
+                selectable: false,
+                dayHeaders: true,
+                nowIndicator: false
+            });
 
-        calendar.render();
+            calendar.render();
+        }
     });
 </script>
 
