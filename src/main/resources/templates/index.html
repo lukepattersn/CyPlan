@@ -176,6 +176,72 @@
         });
 
         // FullCalendar setup
+        const dayMapping = {
+            Monday: 0,
+            Tuesday: 1,
+            Wednesday: 2,
+            Thursday: 3,
+            Friday: 4,
+            Saturday: 5,
+            Sunday: 6
+        };
+
+        function convertDaysToIndices(dayString) {
+            // Split the day string based on known day names
+            const days = Object.keys(dayMapping).filter(day => dayString.includes(day));
+
+            // Map the extracted days to their indices
+            return days.map(day => dayMapping[day]);
+        }
+
+        const courses = [
+            {
+                name: 'COMS 2280: Data Structures',
+                sections: [
+                    {
+                        sectionNumber: 1,
+                        startTime: '10:00',
+                        endTime: '11:30',
+                        days: 'MondayWednesdayFriday' // MWF
+                    }
+                ]
+            },
+            {
+                name: 'Math 101',
+                sections: [
+                    {
+                        sectionNumber: 2,
+                        startTime: '09:00',
+                        endTime: '10:00',
+                        days: 'TuesdayThursday' // TTh
+                    }
+                ]
+            }
+        ];
+
+        function generateEvents(courses) {
+            const startDate = new Date('2024-11-18'); // Start of the week (Monday)
+            const events = [];
+
+            courses.forEach(course => {
+                course.sections.forEach(section => {
+                    const dayIndices = convertDaysToIndices(section.days);
+                    dayIndices.forEach(day => {
+                        const eventDate = new Date(startDate);
+                        eventDate.setDate(startDate.getDate() + day);
+
+                        events.push({
+                            title: `${course.name} - Section ${section.sectionNumber}`,
+                            start: `${eventDate.toISOString().split('T')[0]}T${section.startTime}:00`,
+                            end: `${eventDate.toISOString().split('T')[0]}T${section.endTime}:00`
+                        });
+                    });
+                });
+            });
+
+            return events;
+        }
+
         const calendarEl = document.getElementById('calendar');
         if (calendarEl) {
             const calendar = new FullCalendar.Calendar(calendarEl, {
@@ -194,23 +260,7 @@
                         buttonText: 'Workweek'
                     }
                 },
-                events: [
-                    {
-                        title: 'COMS 2280: Data Structures',
-                        start: '2024-11-20T10:00:00',
-                        end: '2024-11-20T11:30:00'
-                    },
-                    {
-                        title: 'Math 101',
-                        start: '2024-11-21T09:00:00',
-                        end: '2024-11-21T10:00:00'
-                    },
-                    {
-                        title: 'History 201',
-                        start: '2024-11-21T14:00:00',
-                        end: '2024-11-21T15:00:00'
-                    }
-                ],
+                events: generateEvents(courses),
                 editable: false,
                 selectable: false,
                 dayHeaders: true,
@@ -218,8 +268,7 @@
             });
 
             calendar.render();
-        }
-    });
+        }})
 </script>
 
 

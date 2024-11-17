@@ -10,12 +10,12 @@ import java.util.Set;
 
 public class ScheduleBuilder {
 
-    public static List<Pair<Integer, String>> buildClosestNonOverlappingSchedule(List<Course> courses) {
+    public static String buildClosestNonOverlappingSchedule(List<Course> courses) {
         if (courses == null || courses.isEmpty()) {
-            return new ArrayList<>();
+            return "";
         }
 
-        List<Pair<Integer, String>> result = new ArrayList<>();
+        StringBuilder result = new StringBuilder();
         Random random = new Random();
 
         // Time formatter to convert between string and LocalTime
@@ -27,12 +27,12 @@ public class ScheduleBuilder {
         List<Section> firstCourseSections = firstCourse.getSections();
 
         if (firstCourseSections.isEmpty()) {
-            return result; // Return an empty result if the first course has no sections
+            return result.toString(); // Return empty result if the first course has no sections
         }
 
         // Pick a random section from the first course
         Section firstSection = firstCourseSections.get(random.nextInt(firstCourseSections.size()));
-        result.add(new Pair<>(firstCourseIndex, firstSection.getSectionNumber()));
+        result.append("Course ").append(firstCourseIndex).append(": SectionIndex ").append(firstSection.getIndex(firstCourseSections)).append("\n");
 
         // Keep track of courses that have been processed
         Set<Integer> processedCourseIndices = new HashSet<>();
@@ -74,16 +74,16 @@ public class ScheduleBuilder {
             }
 
             if (closestSection != null) {
-                result.add(new Pair<>(i, closestSection.getSectionNumber()));
+                result.append("Course ").append(i).append(": SectionIndex ").append(closestSection.getIndex(currentSections)).append("\n");
                 previousSection = closestSection; // Update the previous section
                 processedCourseIndices.add(i); // Mark this course as processed
             }
         }
 
-        return result;
+        return result.toString();
     }
 
-//    public static void main(String[] args) {
+    //    public static void main(String[] args) {
 //        // Example usage
 //        Course course1 = new Course("CS101", "Intro to Computer Science");
 //        course1.addSection(new Section("MWF", 30, "Dr. Smith", "CS101", "9:00 AM", "10:00 AM", "A"));
@@ -109,4 +109,31 @@ public class ScheduleBuilder {
 //            System.out.println("Course Index: " + pair.getKey() + ", Section Number: " + pair.getValue());
 //        }
 //    }
+    public static void main(String[] args) {
+        // Example usage
+        Course course1 = new Course("CS101", "Intro to Computer Science","AHH");
+        course1.addSection(new Section("MWF", 30, "Dr. Smith", "CS101", "9:00 AM", "10:00 AM", "A"));
+        course1.addSection(new Section("MWF", 25, "Dr. Jones", "CS101", "10:30 AM", "11:30 AM", "B"));
+
+        Course course2 = new Course("MATH101", "Calculus I","AHHH");
+        course2.addSection(new Section("TR", 20, "Dr. Taylor", "MATH101", "12:00 PM", "1:30 PM", "C"));
+        course2.addSection(new Section("TR", 18, "Dr. Brown", "MATH101", "11:00 AM", "12:30 PM", "D"));
+
+        Course course3 = new Course("ENG101", "English Literature","AHH");
+        course3.addSection(new Section("MW", 40, "Dr. Green", "ENG101", "2:00 PM", "3:30 PM", "E"));
+        course3.addSection(new Section("MW", 35, "Dr. White", "ENG101", "1:00 PM", "2:30 PM", "F"));
+
+        List<Course> courses = new ArrayList<>();
+        courses.add(course1);
+        courses.add(course2);
+        courses.add(course3);
+
+        // Call the schedule builder method and print the result
+        String schedule = ScheduleBuilder.buildClosestNonOverlappingSchedule(courses);
+
+        System.out.println("Generated Schedule (Course Index: SectionIndex):");
+        System.out.println(schedule);
+    }
+
+
 }
