@@ -42,6 +42,8 @@ public class ApiService {
 
         // create the payload using the CourseSearchRequest class
         CourseSearchRequest requestPayload = new CourseSearchRequest(academicPeriodId, department, courseId);
+
+        //prints course forum // test
         System.out.println(requestPayload.toString());
 
         // set headers to specify JSON content

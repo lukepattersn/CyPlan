@@ -147,6 +147,11 @@ public class HomeController {
                 redirectAttributes.addFlashAttribute("successMessage", "Course sections fetched successfully.");
             }
 
+            // Print sections to the console // testing
+            for (Section section : sections) {
+                System.out.println(section);
+            }
+
             // Add departments for the dropdown
             String departmentsJson = apiService.fetchDepartments(academicPeriodId);
             JsonNode departmentsRootNode = objectMapper.readTree(departmentsJson);
