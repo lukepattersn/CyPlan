@@ -33,9 +33,9 @@
 </header>
 
 <!-- Flash Messages -->
-<div th:if="${errorMessage}" id="flashMessage" class="alert alert-danger text-center m-0" role="alert"
+<div th:if="${errorMessage}" id="errorMessage" class="alert alert-danger text-center m-0" role="alert"
      style="width: 100%; border-radius: 0;" th:text="${errorMessage}"></div>
-<div th:if="${successMessage}" id="flashMessage" class="alert alert-success text-center m-0" role="alert"
+<div th:if="${successMessage}" id="successMessage" class="alert alert-success text-center m-0" role="alert"
      style="width: 100%; border-radius: 0;" th:text="${successMessage}"></div>
 
 <div class="container mt-5 content-wrapper">
@@ -78,8 +78,8 @@
                             </div>
                             <!-- Sections List -->
                             <div class="card-footer">
-                                <h6>Sections:</h6>
-                                <ul class="list-group list-group-flush">
+                                <button type="button" class="btn btn-secondary toggle-sections-btn">Hide Sections</button>
+                                <ul class="list-group list-group-flush section-list mt-2">
                                     <!-- Iterate over each section within the current course -->
                                     <li th:each="section : ${course.sections}" class="list-group-item">
                                         <p>
@@ -98,6 +98,8 @@
                 </div>
                 <!-- End of Row -->
             </div>
+
+
             <!-- End of Courses Section -->
 
             <!-- Display Message if no courses are found -->
@@ -123,13 +125,25 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         // Flash message handling
-        const flashMessage = document.getElementById('flashMessage');
-        if (flashMessage) {
+        const flashMessages = document.querySelectorAll('.alert');
+        flashMessages.forEach(message => {
             setTimeout(() => {
-                flashMessage.classList.add('fade');
-                setTimeout(() => flashMessage.remove(), 500);
-            }, 5000); // Show for 5 seconds
-        }
+                message.style.transition = 'opacity 0.5s';
+                message.style.opacity = '0';
+                setTimeout(() => message.remove(), 500);
+            }, 5000); // 5-second delay
+        });
+
+        // Toggle Sections Visibility
+        const toggleButtons = document.querySelectorAll('.toggle-sections-btn');
+        toggleButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const sectionList = button.nextElementSibling; // The adjacent <ul> element
+                const isVisible = sectionList.style.display !== 'none';
+                sectionList.style.display = isVisible ? 'none' : 'block';
+                button.textContent = isVisible ? 'Show Sections' : 'Hide Sections';
+            });
+        });
 
         // FullCalendar setup
         const calendarEl = document.getElementById('calendar');
