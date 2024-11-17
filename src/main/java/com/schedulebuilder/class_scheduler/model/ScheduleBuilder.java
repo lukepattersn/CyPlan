@@ -2,138 +2,100 @@ package com.schedulebuilder.class_scheduler.model;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 
 public class ScheduleBuilder {
 
-    public static String buildClosestNonOverlappingSchedule(List<Course> courses) {
-        if (courses == null || courses.isEmpty()) {
-            return "";
+    public static List<Map<Course, Section>> generateNonConflictingSchedules(List<Course> courses, int numberOfSchedules) {
+        List<Map<Course, Section>> schedules = new ArrayList<>();
+
+        // Get all possible combinations of sections
+        List<List<Section>> allSections = new ArrayList<>();
+        for (Course course : courses) {
+            allSections.add(course.getSections());
         }
 
-        StringBuilder result = new StringBuilder();
-        Random random = new Random();
+        // Generate all possible combinations
+        List<List<Section>> allCombinations = cartesianProduct(allSections);
 
-        // Time formatter to convert between string and LocalTime
+        // Shuffle the combinations to randomize the schedules
+        Collections.shuffle(allCombinations);
+
+        // DateTimeFormatter for parsing time strings
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
 
-        // Step 1: Randomly select the first course
-        int firstCourseIndex = random.nextInt(courses.size());
-        Course firstCourse = courses.get(firstCourseIndex);
-        List<Section> firstCourseSections = firstCourse.getSections();
+        for (List<Section> combination : allCombinations) {
+            if (schedules.size() >= numberOfSchedules) {
+                break;
+            }
 
-        if (firstCourseSections.isEmpty()) {
-            return result.toString(); // Return empty result if the first course has no sections
+            if (isNonConflicting(combination, timeFormatter)) {
+                Map<Course, Section> schedule = new HashMap<>();
+                for (int i = 0; i < courses.size(); i++) {
+                    schedule.put(courses.get(i), combination.get(i));
+                }
+                schedules.add(schedule);
+            }
         }
 
-        // Pick a random section from the first course
-        Section firstSection = firstCourseSections.get(random.nextInt(firstCourseSections.size()));
-        result.append("Course ").append(firstCourseIndex).append(": SectionIndex ").append(firstSection.getIndex(firstCourseSections)).append("\n");
+        return schedules;
+    }
 
-        // Keep track of courses that have been processed
-        Set<Integer> processedCourseIndices = new HashSet<>();
-        processedCourseIndices.add(firstCourseIndex);
-
-        // Step 2: Find closest non-overlapping sections for the remaining courses
-        Section previousSection = firstSection;
-
-        for (int i = 0; i < courses.size(); i++) {
-            // Skip the already processed first course
-            if (processedCourseIndices.contains(i)) {
-                continue;
+    private static boolean isNonConflicting(List<Section> sections, DateTimeFormatter timeFormatter) {
+        // Check for time conflicts between sections
+        for (int i = 0; i < sections.size(); i++) {
+            Section s1 = sections.get(i);
+            if (s1.getTimeStart().equals("N/A") || s1.getTimeEnd().equals("N/A")) {
+                continue; // Skip sections without time
             }
+            List<String> days1 = Arrays.asList(s1.getDaysOfTheWeek().split(", "));
 
-            Course currentCourse = courses.get(i);
-            List<Section> currentSections = currentCourse.getSections();
+            LocalTime start1 = LocalTime.parse(s1.getTimeStart(), timeFormatter);
+            LocalTime end1 = LocalTime.parse(s1.getTimeEnd(), timeFormatter);
 
-            if (currentSections.isEmpty()) {
-                continue; // Skip courses with no sections
-            }
+            for (int j = i + 1; j < sections.size(); j++) {
+                Section s2 = sections.get(j);
+                if (s2.getTimeStart().equals("N/A") || s2.getTimeEnd().equals("N/A")) {
+                    continue; // Skip sections without time
+                }
+                List<String> days2 = Arrays.asList(s2.getDaysOfTheWeek().split(", "));
 
-            Section closestSection = null;
-            long minTimeDifference = Long.MAX_VALUE;
+                // Check if the sections occur on the same days
+                Set<String> commonDays = new HashSet<>(days1);
+                commonDays.retainAll(days2);
+                if (!commonDays.isEmpty()) {
+                    LocalTime start2 = LocalTime.parse(s2.getTimeStart(), timeFormatter);
+                    LocalTime end2 = LocalTime.parse(s2.getTimeEnd(), timeFormatter);
 
-            LocalTime prevEndTime = LocalTime.parse(previousSection.getTimeEnd(), timeFormatter);
-
-            for (Section section : currentSections) {
-                LocalTime startTime = LocalTime.parse(section.getTimeStart(), timeFormatter);
-                LocalTime endTime = LocalTime.parse(section.getTimeEnd(), timeFormatter);
-
-                // Check if the current section starts after the previous one ends, or ends before it starts
-                if (startTime.isAfter(prevEndTime) || endTime.isBefore(prevEndTime)) {
-                    long timeDifference = Math.abs(prevEndTime.toSecondOfDay() - startTime.toSecondOfDay());
-                    if (timeDifference < minTimeDifference) {
-                        minTimeDifference = timeDifference;
-                        closestSection = section;
+                    // Check for time overlap
+                    if (start1.isBefore(end2) && start2.isBefore(end1)) {
+                        // Time conflict detected
+                        return false;
                     }
                 }
             }
+        }
+        return true; // No conflicts
+    }
 
-            if (closestSection != null) {
-                result.append("Course ").append(i).append(": SectionIndex ").append(closestSection.getIndex(currentSections)).append("\n");
-                previousSection = closestSection; // Update the previous section
-                processedCourseIndices.add(i); // Mark this course as processed
+    // Utility method to compute cartesian product of lists
+    private static List<List<Section>> cartesianProduct(List<List<Section>> lists) {
+        List<List<Section>> resultLists = new ArrayList<>();
+        if (lists.isEmpty()) {
+            resultLists.add(new ArrayList<>());
+            return resultLists;
+        } else {
+            List<Section> firstList = lists.get(0);
+            List<List<Section>> remainingLists = cartesianProduct(lists.subList(1, lists.size()));
+            for (Section condition : firstList) {
+                for (List<Section> remainingList : remainingLists) {
+                    ArrayList<Section> resultList = new ArrayList<>();
+                    resultList.add(condition);
+                    resultList.addAll(remainingList);
+                    resultLists.add(resultList);
+                }
             }
         }
-
-        return result.toString();
+        return resultLists;
     }
-
-    //    public static void main(String[] args) {
-//        // Example usage
-//        Course course1 = new Course("CS101", "Intro to Computer Science");
-//        course1.addSection(new Section("MWF", 30, "Dr. Smith", "CS101", "9:00 AM", "10:00 AM", "A"));
-//        course1.addSection(new Section("MWF", 25, "Dr. Jones", "CS101", "10:30 AM", "11:30 AM", "B"));
-//
-//        Course course2 = new Course("MATH101", "Calculus I");
-//        course2.addSection(new Section("TR", 20, "Dr. Taylor", "MATH101", "12:00 PM", "1:30 PM", "C"));
-//        course2.addSection(new Section("TR", 18, "Dr. Brown", "MATH101", "11:00 AM", "12:30 PM", "D"));
-//
-//        Course course3 = new Course("ENG101", "English Literature");
-//        course3.addSection(new Section("MW", 40, "Dr. Green", "ENG101", "2:00 PM", "3:30 PM", "E"));
-//        course3.addSection(new Section("MW", 35, "Dr. White", "ENG101", "1:00 PM", "2:30 PM", "F"));
-//
-//        List<Course> courses = new ArrayList<>();
-//        courses.add(course1);
-//        courses.add(course2);
-//        courses.add(course3);
-//
-//        List<Pair<Integer, String>> schedule = buildClosestNonOverlappingSchedule(courses);
-//
-//        System.out.println("Generated Schedule (Course Index, Section Number):");
-//        for (Pair<Integer, String> pair : schedule) {
-//            System.out.println("Course Index: " + pair.getKey() + ", Section Number: " + pair.getValue());
-//        }
-//    }
-    public static void main(String[] args) {
-        // Example usage
-        Course course1 = new Course("CS101", "Intro to Computer Science","AHH");
-        course1.addSection(new Section("MWF", 30, "Dr. Smith", "CS101", "9:00 AM", "10:00 AM", "A"));
-        course1.addSection(new Section("MWF", 25, "Dr. Jones", "CS101", "10:30 AM", "11:30 AM", "B"));
-
-        Course course2 = new Course("MATH101", "Calculus I","AHHH");
-        course2.addSection(new Section("TR", 20, "Dr. Taylor", "MATH101", "12:00 PM", "1:30 PM", "C"));
-        course2.addSection(new Section("TR", 18, "Dr. Brown", "MATH101", "11:00 AM", "12:30 PM", "D"));
-
-        Course course3 = new Course("ENG101", "English Literature","AHH");
-        course3.addSection(new Section("MW", 40, "Dr. Green", "ENG101", "2:00 PM", "3:30 PM", "E"));
-        course3.addSection(new Section("MW", 35, "Dr. White", "ENG101", "1:00 PM", "2:30 PM", "F"));
-
-        List<Course> courses = new ArrayList<>();
-        courses.add(course1);
-        courses.add(course2);
-        courses.add(course3);
-
-        // Call the schedule builder method and print the result
-        String schedule = ScheduleBuilder.buildClosestNonOverlappingSchedule(courses);
-
-        System.out.println("Generated Schedule (Course Index: SectionIndex):");
-        System.out.println(schedule);
-    }
-
-
 }
