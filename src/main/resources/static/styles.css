@@ -284,7 +284,11 @@ form .form-label {
     }
 }
 
-/* Add this CSS to hide sections by default and add transition */
+/* Existing CSS ... */
+
+/* ------------- Scrollable Sections Dropdown ------------- */
+
+/* Hide the sections list by default with smooth transition */
 .section-list {
     display: none;
     transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
@@ -293,8 +297,33 @@ form .form-label {
     opacity: 0;
 }
 
+/* Show the sections list with scroll when visible */
 .section-list.show {
     display: block;
-    max-height: 1000px; /* Arbitrary large value to accommodate content */
+    max-height: 300px; /* Adjust as needed */
     opacity: 1;
+    overflow-y: auto;
+    /* Optional: Customize scrollbar appearance */
+    scrollbar-width: thin; /* For Firefox */
 }
+
+.section-list.show::-webkit-scrollbar {
+    width: 6px; /* Width of the scrollbar */
+}
+
+.section-list.show::-webkit-scrollbar-track {
+    background: #f1f1f1; /* Track color */
+    border-radius: 3px;
+}
+
+.section-list.show::-webkit-scrollbar-thumb {
+    background-color: #C8102E; /* Scrollbar thumb color */
+    border-radius: 3px;
+    border: 1px solid #f1f1f1; /* Optional: Adds space around thumb */
+}
+
+/* Optional: Adjust the list item padding for better readability */
+.section-list .list-group-item {
+    padding: 10px 15px;
+}
+
