@@ -23,7 +23,6 @@ public class Course {
         this.courseName = courseName;
         this.description = description;
         this.sections = sections;
-        updateCourseNameBasedOnSections(); // Update courseName based on sections
     }
 
     // No-argument constructor (optional, for frameworks like Hibernate)
@@ -60,24 +59,6 @@ public class Course {
         return sections;
     }
 
-    public void setSections(List<Section> sections) {
-        this.sections = sections;
-        updateCourseNameBasedOnSections(); // Update courseName when sections are set
-    }
-
-    public void addSection(Section section) {
-        this.sections.add(section);
-        updateCourseNameBasedOnSections(); // Update courseName when a section is added
-    }
-
-    private void updateCourseNameBasedOnSections() {
-        if (!sections.isEmpty()) {
-            Section firstSection = sections.get(0);
-            if (firstSection.getDescription() != null && !firstSection.getDescription().isEmpty()) {
-                this.courseName = firstSection.getDescription();
-            }
-        }
-    }
 
     @Override
     public String toString() {
@@ -87,5 +68,9 @@ public class Course {
                 ", description='" + description + '\'' +
                 ", sections=" + sections +
                 '}';
+    }
+
+    public void addSection(Section section) {
+        this.sections.add(section);
     }
 }
