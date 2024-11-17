@@ -8,6 +8,7 @@ import java.util.List;
 
 import com.schedulebuilder.class_scheduler.model.CourseSearchRequest;
 import com.schedulebuilder.class_scheduler.model.Section;
+import com.schedulebuilder.class_scheduler.model.Course;
 import com.schedulebuilder.class_scheduler.service.ApiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -24,6 +25,10 @@ public class HomeController {
 
     @Autowired
     private ApiService apiService;
+
+    List<Course> courses = new ArrayList<>();
+
+    // No global state for sections or courses; managed locally in methods
 
     /**
      * Loads the homepage with a list of departments for the user to choose from.
@@ -61,7 +66,6 @@ public class HomeController {
         return "index";
     }
 
-
     /**
      * Searches for courses based on user input (academic period, department, and course ID).
      *
@@ -69,62 +73,40 @@ public class HomeController {
      * @param department The department (e.g., "CPRE - Computer Engineering").
      * @param courseId The course ID (optional).
      * @param model The Model object used to pass data to the Thymeleaf template.
-     * @return The name of the Thymeleaf template to display (in this case, "courses").
+     * @return The name of the Thymeleaf template to display (in this case, "index").
      */
-//    @PostMapping("/search-courses")
-//    public String searchCourses(
-//            @RequestParam String academicPeriodId,
-//            @RequestParam String department,
-//            @RequestParam String courseId,
-//            Model model) {
-//        try {
-//            // Fetch the courses based on the input parameters
-//            String courses = apiService.fetchCourses(academicPeriodId, department, courseId);
-//
-//            // Add the fetched courses to the model
-//            model.addAttribute("courses", courses);
-//
-//            // Re-add departments so the dropdown remains populated
-//            String departments = apiService.fetchDepartments(academicPeriodId);
-//            model.addAttribute("departments", departments);
-//        } catch (Exception e) {
-//            // Handle errors gracefully
-//            model.addAttribute("courses", "Error fetching courses. Please try again later.");
-//            e.printStackTrace();
-//        }
-//
-//        return "index"; // Render the same index.html template with updated data
-//    }
-
-    // test method for testing api call, returns raw json
     @PostMapping("/")
     public String searchCourses(
             @RequestParam String department,
             @RequestParam String courseId,
             @RequestParam(required = false, defaultValue = "ACADEMIC_PERIOD-2025Spring") String academicPeriodId,
-            RedirectAttributes redirectAttributes,
             Model model) {
         try {
             // Fetch the raw JSON response for the selected course
             String coursesJson = apiService.fetchCourses(academicPeriodId, department, courseId);
 
-            // Parse JSON to check for sections
+            // Parse the JSON response into Course and Section objects
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode rootNode = objectMapper.readTree(coursesJson);
             JsonNode dataNode = rootNode.path("data");
 
-            List<Section> sections = new ArrayList<>();
             if (dataNode.isArray() && dataNode.size() > 0) {
                 for (JsonNode courseNode : dataNode) {
+                    String courseIdParsed = courseNode.path("courseId").asText();
+                    String courseName = courseNode.path("courseName").asText();
+
+                    // Create a new Course object
+                    Course course = new Course(courseIdParsed, courseName);
+
+                    // Parse and add sections to the course
                     JsonNode sectionsNode = courseNode.path("sections");
                     if (sectionsNode.isArray()) {
                         for (JsonNode sectionNode : sectionsNode) {
-                            // Logic to process section details (same as before)
                             String meetingPatterns = sectionNode.path("meetingPatterns").asText();
                             int openSeats = sectionNode.path("openSeats").asInt();
                             String instructor = sectionNode.path("instructor").asText();
-                            String courseIdParsed = sectionNode.path("courseId").asText();
 
+                            // Parse meetingPatterns
                             String[] meetingParts = meetingPatterns.split("\\|");
                             String daysOfTheWeek = meetingParts[0].trim();
                             String[] times = meetingParts[1].split("-");
@@ -133,26 +115,34 @@ public class HomeController {
 
                             daysOfTheWeek = convertDaysOfWeek(daysOfTheWeek);
 
+                            // Create Section object
                             Section section = new Section(daysOfTheWeek, openSeats, instructor, courseIdParsed, timeStart, timeEnd);
-                            sections.add(section);
+
+                            // Add the section to the course
+                            course.addSection(section);
                         }
                     }
+
+                    // Add the course to the list
+                    courses.add(course);
                 }
             }
 
-            // If no sections found, set flash message
-            if (sections.isEmpty()) {
-                redirectAttributes.addFlashAttribute("errorMessage", "No sections found for the provided course ID.");
-            } else {
-                redirectAttributes.addFlashAttribute("successMessage", "Course sections fetched successfully.");
+            for (Course course : courses) {
+                System.out.println("Course ID: " + course.getCourseId() + " - Course Name: " + course.getCourseName());
+                for (Section section : course.getSections()) {
+                    System.out.println("  Section: ");
+                    System.out.println("    Instructor: " + section.getInstructor());
+                    System.out.println("    Time: " + section.getTimeStart() + " - " + section.getTimeEnd());
+                    System.out.println("    Days: " + section.getDaysOfTheWeek());
+                    System.out.println("    Open Seats: " + section.getOpenSeats());
+                }
             }
 
-            // Print sections to the console // testing
-            for (Section section : sections) {
-                System.out.println(section);
-            }
+            // Add the courses to the model
+            model.addAttribute("courses", courses.isEmpty() ? "No courses found." : courses);
 
-            // Add departments for the dropdown
+            // Re-add departments to keep the dropdown populated
             String departmentsJson = apiService.fetchDepartments(academicPeriodId);
             JsonNode departmentsRootNode = objectMapper.readTree(departmentsJson);
             JsonNode departmentsNode = departmentsRootNode.path("data");
@@ -163,16 +153,17 @@ public class HomeController {
                     departments.add(departmentNode.asText());
                 }
             }
+
             model.addAttribute("departments", departments);
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("errorMessage", "Error fetching course sections. Please try again.");
+            // Handle errors gracefully
+            model.addAttribute("courses", "Error fetching courses. Please try again later.");
+            model.addAttribute("departments", Collections.singletonList("Error fetching departments."));
             e.printStackTrace();
         }
 
-        // Redirect to prevent form resubmission
-        return "redirect:/";
+        return "index"; // Render the same index.html template with updated data
     }
-
 
     private String convertDaysOfWeek(String shorthand) {
         shorthand = shorthand.toUpperCase();
@@ -184,5 +175,4 @@ public class HomeController {
                 .replace("F", "Friday ")
                 .trim();
     }
-
 }
