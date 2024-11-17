@@ -1,22 +1,31 @@
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #333333;
+}
+
 .header {
     background-color: #C8102E;
-    padding: 10px;
-    text-align: left;
-    border-style: none;
-    width: 100%;
+    padding: 15px 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .logo {
-    width: 5em;
+    width: 60px;
     height: auto;
-    padding: 5px;
-    text-align: center;
-
+    margin-right: 15px;
 }
+
+.CyPlan {
+    display: flex;
+    align-items: center;
+}
+
 .CyPlan span {
     color: #ffffff;
-    font-family: Arial, serif;
-    font-size: 30pt;
+    font-size: 32px;
+    margin-right: 2px;
+    font-family: Arial, Helvetica, sans-serif;
 }
 
 .CyPlan span:nth-child(n+3) {
@@ -24,54 +33,130 @@
 }
 
 .content-wrapper {
+    max-width: 1200px;
     margin: 0 auto;
-    max-width: 100%;
-    padding: 10px 10%;
-    box-sizing: border-box;
+    padding: 20px;
 }
 
-body{
-    min-height: 100vh;
+main h1 {
+    color: #C8102E;
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    text-align: center;
 }
 
+main p {
+    font-size: 1.1rem;
+    color: #555555;
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+form {
+    background-color: #ffffff;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+form .form-label {
+    font-weight: 600;
+}
+
+.btn-primary {
+    background-color: #C8102E;
+    border: none;
+    transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+    background-color: #a50e24;
+}
+
+.departments-section {
+    margin-top: 50px;
+}
+
+.departments-section h2 {
+    color: #C8102E;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.departments-section .card {
+    background-color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.departments-section pre {
+    background-color: #f1f1f1;
+    padding: 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 1rem;
+    white-space: pre-wrap;
+}
+
+/* Footer */
 .footer {
     background-color: #333333;
     color: white;
     text-align: center;
-    padding: 15px;
+    padding: 20px;
     margin-top: auto;
     width: 100%;
 }
 
-/* Responsive for Mobile */
-@media (max-width: 768px) {
-    .CyPlan span {
-        font-size: 24pt;
-    }
-
-    .logo {
-        width: 4em;
-    }
-
+/* Responsive Design */
+@media (max-width: 992px) {
     .content-wrapper {
-        padding: 10px 5%;
+        padding: 15px;
     }
 }
 
-@media (max-width: 480px) {
-    .header {
-        padding: 5px;
-    }
-
+@media (max-width: 768px) {
     .CyPlan span {
-        font-size: 20pt;
+        font-size: 24px;
     }
 
     .logo {
-        width: 3em;
+        width: 50px;
     }
 
-    .content-wrapper {
-        padding: 5px 2%;
+    main h1 {
+        font-size: 2rem;
+    }
+
+    form {
+        padding: 20px;
+    }
+}
+
+@media (max-width: 576px) {
+    .header {
+        padding: 10px;
+    }
+
+    .CyPlan span {
+        font-size: 20px;
+    }
+
+    .logo {
+        width: 40px;
+        margin-right: 10px;
+    }
+
+    main h1 {
+        font-size: 1.75rem;
+    }
+
+    main p {
+        font-size: 1rem;
+    }
+
+    form {
+        padding: 15px;
     }
 }

@@ -1,4 +1,11 @@
 package com.schedulebuilder.class_scheduler.controller;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import com.schedulebuilder.class_scheduler.model.CourseSearchRequest;
 import com.schedulebuilder.class_scheduler.service.ApiService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,14 +33,32 @@ public class HomeController {
     @GetMapping("/")
     public String home(@RequestParam(required = false, defaultValue = "ACADEMIC_PERIOD-2025Spring") String academicPeriod, Model model) {
         try {
-            String departments = apiService.fetchDepartments(academicPeriod);
+            // Fetch the raw JSON response
+            String departmentsJson = apiService.fetchDepartments(academicPeriod);
+
+            // Parse the JSON response into a list of departments
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode rootNode = objectMapper.readTree(departmentsJson);
+            JsonNode departmentsNode = rootNode.path("data");
+
+            // Convert the JSON array into a List of strings
+            List<String> departments = new ArrayList<>();
+            if (departmentsNode.isArray()) {
+                for (JsonNode departmentNode : departmentsNode) {
+                    departments.add(departmentNode.asText());
+                }
+            }
+
+            // Add the parsed list of departments to the model
             model.addAttribute("departments", departments);
         } catch (Exception e) {
-            model.addAttribute("departments", "Error fetching departments. Please try again later.");
+            // Handle errors gracefully
+            model.addAttribute("departments", Collections.singletonList("Error fetching departments. Please try again later."));
             e.printStackTrace();
         }
         return "index";
     }
+
 
     /**
      * Searches for courses based on user input (academic period, department, and course ID).
