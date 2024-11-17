@@ -105,19 +105,35 @@ public class HomeController {
             // Fetch the raw JSON response for the selected course
             String coursesJson = apiService.fetchCourses(academicPeriodId, department, courseId);
 
-            // Log the fetched course JSON for debugging
+            // Log the raw JSON response (for debugging)
             System.out.println("Fetched Courses JSON: " + coursesJson);
 
-            // Add the raw JSON directly to the model to be displayed
-            model.addAttribute("courseSections", coursesJson);
-
-            // Fetch and populate the departments for the dropdown
-            String departmentsJson = apiService.fetchDepartments(academicPeriodId);
+            // Use ObjectMapper to parse the JSON response and extract the "sections" array
             ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode rootNode = objectMapper.readTree(coursesJson);
+            JsonNode dataNode = rootNode.path("data");
 
-            // Parse and extract departments into a list
-            JsonNode rootNode = objectMapper.readTree(departmentsJson);
-            JsonNode departmentsNode = rootNode.path("data");
+            List<String> sections = new ArrayList<>();
+            if (dataNode.isArray() && dataNode.size() > 0) {
+                for (JsonNode courseNode : dataNode) {
+                    JsonNode sectionsNode = courseNode.path("sections");
+                    if (sectionsNode.isArray()) {
+                        for (JsonNode sectionNode : sectionsNode) {
+                            sections.add(sectionNode.toString());
+                        }
+                    }
+                }
+            }
+
+            // Add the extracted sections to the model
+            model.addAttribute("courseSections", sections.isEmpty() ? "No sections found." : sections);
+
+            // Re-add departments to keep the dropdown populated
+            String departmentsJson = apiService.fetchDepartments(academicPeriodId);
+            JsonNode departmentsRootNode = objectMapper.readTree(departmentsJson);
+            JsonNode departmentsNode = departmentsRootNode.path("data");
+            System.out.println("Extracted Sections: " + sections);
+
             List<String> departments = new ArrayList<>();
             if (departmentsNode.isArray()) {
                 for (JsonNode departmentNode : departmentsNode) {
@@ -132,8 +148,8 @@ public class HomeController {
             e.printStackTrace();
         }
 
+
         return "index"; // Render the same index.html template with updated data
     }
-
 
 }
