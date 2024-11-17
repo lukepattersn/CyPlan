@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.List;
 
 import com.schedulebuilder.class_scheduler.model.CourseSearchRequest;
+import com.schedulebuilder.class_scheduler.model.Section;
 import com.schedulebuilder.class_scheduler.service.ApiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -105,21 +106,35 @@ public class HomeController {
             // Fetch the raw JSON response for the selected course
             String coursesJson = apiService.fetchCourses(academicPeriodId, department, courseId);
 
-            // Log the raw JSON response (for debugging)
-            System.out.println("Fetched Courses JSON: " + coursesJson);
-
             // Use ObjectMapper to parse the JSON response and extract the "sections" array
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode rootNode = objectMapper.readTree(coursesJson);
             JsonNode dataNode = rootNode.path("data");
 
-            List<String> sections = new ArrayList<>();
+            List<Section> sections = new ArrayList<>();
             if (dataNode.isArray() && dataNode.size() > 0) {
                 for (JsonNode courseNode : dataNode) {
                     JsonNode sectionsNode = courseNode.path("sections");
                     if (sectionsNode.isArray()) {
                         for (JsonNode sectionNode : sectionsNode) {
-                            sections.add(sectionNode.toString());
+                            String meetingPatterns = sectionNode.path("meetingPatterns").asText(); // e.g., "TR | 1:10 PM - 2:00 PM"
+                            int openSeats = sectionNode.path("openSeats").asInt();
+                            String instructor = sectionNode.path("instructor").asText();
+                            String courseIdParsed = sectionNode.path("courseId").asText();
+
+                            // Parse meetingPatterns into daysOfTheWeek, timeStart, and timeEnd
+                            String[] meetingParts = meetingPatterns.split("\\|");
+                            String daysOfTheWeek = meetingParts[0].trim();
+                            String[] times = meetingParts[1].split("-");
+                            String timeStart = times[0].trim();
+                            String timeEnd = times[1].trim();
+
+                            // Convert daysOfTheWeek to full names
+                            daysOfTheWeek = convertDaysOfWeek(daysOfTheWeek);
+
+                            // Create Section object
+                            Section section = new Section(daysOfTheWeek, openSeats, instructor, courseIdParsed, timeStart, timeEnd);
+                            sections.add(section);
                         }
                     }
                 }
@@ -132,7 +147,6 @@ public class HomeController {
             String departmentsJson = apiService.fetchDepartments(academicPeriodId);
             JsonNode departmentsRootNode = objectMapper.readTree(departmentsJson);
             JsonNode departmentsNode = departmentsRootNode.path("data");
-            System.out.println("Extracted Sections: " + sections);
 
             List<String> departments = new ArrayList<>();
             if (departmentsNode.isArray()) {
@@ -140,6 +154,12 @@ public class HomeController {
                     departments.add(departmentNode.asText());
                 }
             }
+
+            // Print sections to the console
+            for (Section section : sections) {
+                System.out.println(section);
+            }
+
             model.addAttribute("departments", departments);
         } catch (Exception e) {
             // Handle errors gracefully
@@ -148,8 +168,18 @@ public class HomeController {
             e.printStackTrace();
         }
 
-
         return "index"; // Render the same index.html template with updated data
+    }
+
+    private String convertDaysOfWeek(String shorthand) {
+        shorthand = shorthand.toUpperCase();
+        return shorthand
+                .replace("M", "Monday ")
+                .replace("T", "Tuesday ")
+                .replace("W", "Wednesday ")
+                .replace("R", "Thursday ")
+                .replace("F", "Friday ")
+                .trim();
     }
 
 }
