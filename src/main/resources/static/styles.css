@@ -16,6 +16,103 @@ body {
     margin-right: 15px;
 }
 
+#calendar {
+    background-color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    margin-top: 30px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    width: 100%;
+}
+
+.fc {
+    height: auto !important;
+    width: 100%;
+}
+
+.fc-view-harness {
+    overflow: visible !important;
+}
+
+.fc-timegrid-event {
+    border: none;
+    background-color: #C8102E;
+    color: #ffffff;
+    font-size: 0.9rem;
+    border-radius: 5px;
+    padding: 2px 5px;
+}
+
+.fc-col-header-cell {
+    color: #333333;
+    font-weight: bold;
+    text-align: center;
+}
+
+.fc-event-title, .fc-col-header-cell-cushion {
+    color: #333333 !important;
+    text-decoration: none;
+}
+
+.fc-view {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+@media (max-width: 768px) {
+    #calendar {
+        padding: 15px;
+        font-size: 0.8rem;
+    }
+
+    .fc {
+        height: auto !important;
+    }
+
+    .fc-timegrid-event {
+        font-size: 0.7rem;
+        padding: 1px 3px;
+    }
+
+    .fc-col-header-cell {
+        font-size: 0.85rem;
+    }
+
+    .fc-timegrid-slot-label {
+        font-size: 0.7rem;
+        padding-left: 5px;
+    }
+
+    .fc-timegrid-slot {
+        height: 30px;
+    }
+}
+
+@media (max-width: 576px) {
+    #calendar {
+        font-size: 0.7rem;
+        padding: 10px;
+    }
+
+    .fc-col-header-cell {
+        font-size: 0.75rem;
+    }
+
+    .fc-timegrid-event {
+        font-size: 0.65rem;
+        padding: 1px;
+    }
+
+    .fc-timegrid-slot-label {
+        font-size: 0.65rem;
+    }
+
+    .fc-timegrid-slot {
+        height: 25px;
+    }
+}
+
 .CyPlan {
     display: flex;
     align-items: center;
@@ -99,7 +196,6 @@ form .form-label {
     white-space: pre-wrap;
 }
 
-/* Footer */
 .footer {
     background-color: #333333;
     color: white;
@@ -109,7 +205,6 @@ form .form-label {
     width: 100%;
 }
 
-/* Responsive Design */
 @media (max-width: 992px) {
     .content-wrapper {
         padding: 15px;
