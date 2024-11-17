@@ -105,6 +105,7 @@ public class HomeController {
                             String meetingPatterns = sectionNode.path("meetingPatterns").asText();
                             int openSeats = sectionNode.path("openSeats").asInt();
                             String instructor = sectionNode.path("instructor").asText();
+                            String sectionNumber = sectionNode.path("number").asText();
 
                             // Parse meetingPatterns
                             String[] meetingParts = meetingPatterns.split("\\|");
@@ -113,10 +114,11 @@ public class HomeController {
                             String timeStart = times[0].trim();
                             String timeEnd = times[1].trim();
 
+
                             daysOfTheWeek = convertDaysOfWeek(daysOfTheWeek);
 
                             // Create Section object
-                            Section section = new Section(daysOfTheWeek, openSeats, instructor, courseIdParsed, timeStart, timeEnd);
+                            Section section = new Section(daysOfTheWeek, openSeats, instructor, courseIdParsed, timeStart, timeEnd, sectionNumber);
 
                             // Add the section to the course
                             course.addSection(section);

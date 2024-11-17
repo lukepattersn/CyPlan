@@ -7,15 +7,17 @@ public class Section {
     private String courseId;
     private String timeStart; // e.g., "1:10 PM"
     private String timeEnd;   // e.g., "2:00 PM"
+    private String sectionNumber; // e.g., 1, 2, 3, A, B, C
 
     // Constructor
-    public Section(String daysOfTheWeek, int openSeats, String instructor, String courseId, String timeStart, String timeEnd) {
+    public Section(String daysOfTheWeek, int openSeats, String instructor, String courseId, String timeStart, String timeEnd, String sectionNumber) {
         this.daysOfTheWeek = daysOfTheWeek;
         this.openSeats = openSeats;
         this.instructor = instructor;
         this.courseId = courseId;
         this.timeStart = timeStart;
         this.timeEnd = timeEnd;
+        this.sectionNumber = sectionNumber;
     }
 
     // Getters and Setters
@@ -67,6 +69,14 @@ public class Section {
         this.timeEnd = timeEnd;
     }
 
+    public String getSectionNumber() {
+        return sectionNumber;
+    }
+
+    public void setSectionNumber(String sectionNumber) {
+        this.sectionNumber = sectionNumber;
+    }
+
     @Override
     public String toString() {
         return "Section{" +
@@ -76,7 +86,7 @@ public class Section {
                 ", courseId='" + courseId + '\'' +
                 ", timeStart='" + timeStart + '\'' +
                 ", timeEnd='" + timeEnd + '\'' +
+                ", sectionNumber='" + sectionNumber + '\'' +
                 '}';
     }
-
 }
