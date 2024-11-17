@@ -133,6 +133,24 @@ body {
     max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
+
+    /* Flexbox Layout */
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap; /* Allows items to wrap if necessary */
+}
+
+main {
+    flex: 1;
+    min-width: 300px; /* Prevent columns from becoming too narrow */
+}
+
+#calendar {
+    flex: 1;
+    min-width: 300px;
 }
 
 main h1 {
@@ -205,6 +223,12 @@ form .form-label {
     width: 100%;
 }
 
+@media (max-width: 1200px) {
+    .content-wrapper {
+        flex-direction: column;
+    }
+}
+
 @media (max-width: 992px) {
     .content-wrapper {
         padding: 15px;
@@ -226,6 +250,10 @@ form .form-label {
 
     form {
         padding: 20px;
+    }
+
+    .content-wrapper {
+        flex-direction: column;
     }
 }
 
@@ -254,4 +282,19 @@ form .form-label {
     form {
         padding: 15px;
     }
+}
+
+/* Add this CSS to hide sections by default and add transition */
+.section-list {
+    display: none;
+    transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+}
+
+.section-list.show {
+    display: block;
+    max-height: 1000px; /* Arbitrary large value to accommodate content */
+    opacity: 1;
 }
