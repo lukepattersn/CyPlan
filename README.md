@@ -4,7 +4,7 @@ CyPlan is your go-to tool for efficiently organizing your course schedule at Iow
 
 ## Why CyPlan?
 
-Inspired by the discontinuation of ISU's official schedule generator and the need for a better alternative, CyPlan aims to simplify course planning and registration for students. Our goal is to provide a streamlined solution that enhances your academic experience.
+Inspired by the discontinuation of ISU's official schedule generator, the need for a better alternative, and the hate for workday, CyPlan aims to simplify course planning and registration for students. ISU students almost found themselves without a reliable scheduling tool, but CyPlan is here to save the day! Our goal is to provide a streamlined solution that enhances your academic experience.
 
 ## Features
 
@@ -33,19 +33,19 @@ In the future, we plan to integrate AI capabilities to further optimize scheduli
 ## Built With
 
 - CSS3, HTML5, HTTPS
-- Iowa State Course API, Jackson Databind
+- Iowa State Course API
 - Java, JavaScript
 - Spring Boot
-- Vue.js (recently adopted for frontend development)
+- Vue.js 
 
 ## Meet the Team
 
 ### Jeremiah Baccam
-Jeremiah led backend development, focusing on optimizing API interactions with Iowa State's data repository to ensure seamless data integration.
+Managed API development, interfacing with Iowa State's data repository. Worked across frontend to backend, also contributing to frontend styling and backend logic.
 
 ### Luke Patterson
-Luke spearheaded frontend development, crafting a visually appealing and user-friendly interface using HTML, CSS, Bootstrap, and FullCalendar.js.
+Handled frontend development, creating a user-friendly interface using HTML, CSS, Bootstrap, and FullCalendar.js. Contributed to backend design and logic for seamless integration.
 
 ### Jared Cheney
-Jared contributed significantly to CyPlan's design and optimization logic, refining the scheduling algorithm to enhance user experience and efficiency.
+Focused on algorithm development and parsing within CyPlan, optimizing scheduling generation functionalities for ISU students.
 
