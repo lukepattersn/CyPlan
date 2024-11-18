@@ -230,6 +230,39 @@ public class HomeController {
         return "redirect:/";
     }
 
+    @PostMapping("/removeCourse")
+    public String removeCourse(@RequestParam String department,
+                               @RequestParam String courseId,
+                               RedirectAttributes redirectAttributes,
+                               HttpSession session) {
+        try {
+            @SuppressWarnings("unchecked")
+            List<Course> courses = (List<Course>) session.getAttribute("courses");
+
+            if (courses != null) {
+                String fullCourseId = department + " " + courseId;
+                boolean removed = courses.removeIf(c -> c.getCourseId().equals(fullCourseId));
+
+                if (removed) {
+                    // Update courses
+                    session.setAttribute("courses", courses);
+
+                    // Clear ALL schedule-related attributes
+                    session.removeAttribute("selectedSections");
+                    session.removeAttribute("generatedSchedules");
+                    session.removeAttribute("currentScheduleIndex");
+
+                    redirectAttributes.addFlashAttribute("successMessage", "Course removed successfully");
+                } else {
+                    redirectAttributes.addFlashAttribute("errorMessage", "Course not found");
+                }
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Error removing course: " + e.getMessage());
+        }
+        return "redirect:/";
+    }
+
     private String convertDaysOfWeek(String daysOfTheWeek) {
         return daysOfTheWeek
                 .replace("M", "Monday,")

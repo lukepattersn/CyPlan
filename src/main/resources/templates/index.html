@@ -40,115 +40,161 @@
     </div>
 </header>
 
-<!-- Vue.js Managed Flash Messages -->
-<div v-if="flashMessage.message" :class="['alert', `alert-${flashMessage.type}`, 'text-center', 'm-0']" role="alert"
-     style="width: 100%; border-radius: 0;" v-text="flashMessage.message">
-</div>
-
 <!-- Vue.js App Root Element -->
-<div id="app" class="container mt-5 content-wrapper">
-    <main>
-        <h1 class="mb-4">Welcome to CyPlan!</h1>
-        <p>Class planner for ISU students to simplify your schedule planning because workday makes everything difficult.</p>
+<div id="app">
+    <div v-if="flashMessage.message"
+         :class="['alert', `alert-${flashMessage.type}`, 'text-center', 'm-0']"
+         role="alert"
+         style="position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 1000; min-width: 300px;">
+        {{ flashMessage.message }}
+    </div>
 
-        <div class="mb-5">
-            <!-- Course Addition Form -->
-            <form @submit.prevent="addCourse" id="add-course-form">
-                <div class="mb-3">
-                    <label class="form-label">Department</label>
-                    <select v-model="newCourse.department" class="form-select" required>
-                        <option value="" disabled>Select a Department</option>
-                        <option v-for="dept in departments" :key="dept" :value="dept">{{ dept }}</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Course ID</label>
-                    <input type="text" class="form-control" v-model="newCourse.courseId" placeholder="e.g., COMS 2280" required>
-                </div>
-                <button type="submit" class="btn btn-primary">Add Course</button>
-            </form>
+    <div class="container mt-5 content-wrapper">
+        <main>
+            <h1 class="mb-4">Welcome to CyPlan!</h1>
+            <p>Class planner for ISU students to simplify your schedule planning because workdays make everything difficult.</p>
 
-            <!-- Generate Schedules button -->
-            <div v-if="courses.length > 0" class="text-center mt-4 mb-4">
-                <button @click="generateSchedules" class="btn btn-primary">Generate Schedules</button>
-            </div>
-
-            <!-- Schedule Navigation -->
-            <transition name="fade">
-                <div v-if="scheduleCount > 0" class="schedule-navigation-compact">
-                    <div class="d-flex justify-content-center align-items-center gap-3">
-                        <button @click="previousSchedule" class="btn btn-primary">Previous</button>
-                        <span class="schedule-counter">Schedule {{ currentScheduleIndex + 1 }} of {{ scheduleCount }}</span>
-                        <button @click="nextSchedule" class="btn btn-primary">Next</button>
+            <div class="mb-5">
+                <!-- Course Addition Form -->
+                <form @submit.prevent="addCourse" id="add-course-form" class="needs-validation" novalidate>
+                    <div class="mb-3">
+                        <label class="form-label">Department</label>
+                        <select v-model="newCourse.department"
+                                class="form-select"
+                                :class="{'is-invalid': formSubmitted && !newCourse.department}"
+                                required>
+                            <option value="" disabled>Select a Department</option>
+                            <option v-for="dept in departments" :key="dept" :value="dept">{{ dept }}</option>
+                        </select>
+                        <div class="invalid-feedback">Please select a department.</div>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Course ID</label>
+                        <input type="text"
+                               class="form-control"
+                               :class="{'is-invalid': formSubmitted && !newCourse.courseId}"
+                               v-model="newCourse.courseId"
+                               placeholder="e.g., COMS 2280"
+                               required>
+                        <div class="invalid-feedback">Please enter a valid course ID.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Course</button>
+                </form>
+
+                <!-- Generate Schedules button -->
+                <div v-if="courses.length > 0" class="text-center mt-4 mb-4">
+                    <button @click="generateSchedules" class="btn btn-primary">Generate Schedules</button>
                 </div>
-            </transition>
 
-            <!-- Calendar section -->
-            <div class="mt-5">
-                <h2 class="mb-4">Course Schedule</h2>
-                <div id='calendar'></div>
-            </div>
+                <!-- Schedule Navigation -->
+                <transition name="fade">
+                    <div v-if="scheduleCount > 0" class="schedule-navigation-compact">
+                        <div class="d-flex justify-content-center align-items-center gap-3">
+                            <button @click="previousSchedule" class="btn btn-primary">Previous</button>
+                            <span class="schedule-counter">Schedule {{ currentScheduleIndex + 1 }} of {{ scheduleCount }}</span>
+                            <button @click="nextSchedule" class="btn btn-primary">Next</button>
+                        </div>
+                    </div>
+                </transition>
 
-            <!-- List of Added Courses -->
-            <div v-if="courses.length > 0" class="mt-5">
-                <h2 class="mb-4">Your Courses</h2>
-                <div class="row">
-                    <div v-for="(course, index) in courses" :key="index" class="col-md-6 mb-4">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h4 class="card-title">{{ course.courseId }}</h4>
-                                <hr class="line-break">
-                                <p class="card-text">{{ course.description }}</p>
+                <!-- Calendar section -->
+                <div class="mt-5">
+                    <h2 class="mb-4">Course Schedule</h2>
+                    <div id='calendar'></div>
+                </div>
 
-                                <!-- Sections Dropdown -->
-                                <div class="sections-container">
-                                    <button class="btn btn-outline-primary w-100"
-                                            @click="toggleSections(course)">
-                                        {{ course.showSections ? 'Hide Sections' : 'View Sections' }}
-                                    </button>
-                                    <transition name="slide-fade">
-                                        <div v-if="course.showSections" class="sections-dropdown mt-3">
-                                            <div v-for="(section, sectionIndex) in course.sections"
-                                                 :key="sectionIndex"
-                                                 class="section-item">
-                                                <div class="section-header">
-                                                    Section {{ section.sectionNumber }}
-                                                </div>
-                                                <div class="section-details">
-                                                    <div class="detail-row">
-                                                        <span class="detail-label">Instructor:</span>
-                                                        <span class="detail-value">{{ section.instructor }}</span>
+                <!-- List of Added Courses -->
+                <div v-if="courses.length > 0" class="mt-5">
+                    <h2 class="mb-4">Your Courses</h2>
+                    <div class="row">
+                        <div v-for="(course, index) in courses" :key="index" class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h4 class="card-title">{{ course.courseId }}</h4>
+                                    <hr class="line-break">
+                                    <p class="card-text">{{ course.description }}</p>
+
+                                    <!-- Sections Dropdown -->
+                                    <div class="sections-container">
+                                        <button class="btn btn-outline-primary w-100"
+                                                @click="toggleSections(course)">
+                                            {{ course.showSections ? 'Hide Sections' : 'View Sections' }}
+                                        </button>
+                                        <transition name="slide-fade">
+                                            <div v-if="course.showSections" class="sections-dropdown mt-3">
+                                                <div v-for="(section, sectionIndex) in course.sections"
+                                                     :key="sectionIndex"
+                                                     class="section-item">
+                                                    <div class="section-header">
+                                                        Section {{ section.sectionNumber }}
                                                     </div>
-                                                    <div class="detail-row">
-                                                        <span class="detail-label">Days:</span>
-                                                        <span class="detail-value">{{ section.daysOfTheWeek }}</span>
-                                                    </div>
-                                                    <div class="detail-row">
-                                                        <span class="detail-label">Time:</span>
-                                                        <span class="detail-value">{{ section.timeStart }} - {{ section.timeEnd }}</span>
-                                                    </div>
-                                                    <div class="detail-row">
-                                                        <span class="detail-label">Open Seats:</span>
-                                                        <span class="detail-value">{{ section.openSeats }}</span>
+                                                    <div class="section-details">
+                                                        <div class="detail-row">
+                                                            <span class="detail-label">Instructor:</span>
+                                                            <span class="detail-value">{{ section.instructor }}</span>
+                                                        </div>
+                                                        <div class="detail-row">
+                                                            <span class="detail-label">Days:</span>
+                                                            <span class="detail-value">{{ section.daysOfTheWeek }}</span>
+                                                        </div>
+                                                        <div class="detail-row">
+                                                            <span class="detail-label">Time:</span>
+                                                            <span class="detail-value">{{ section.timeStart }} - {{ section.timeEnd }}</span>
+                                                        </div>
+                                                        <div class="detail-row">
+                                                            <span class="detail-label">Open Seats:</span>
+                                                            <span class="detail-value">{{ section.openSeats }}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </transition>
+                                        </transition>
+                                    </div>
+
+                                    <!-- Add this remove button -->
+                                    <button @click="removeCourse(course)"
+                                            class="btn btn-danger w-100 mt-2">
+                                        Remove Course
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Display Message if no courses are found -->
+                <div v-if="courses.length === 0" class="mt-4">
+                    <p>No courses to display. Please add courses using the form above.</p>
+                </div>
             </div>
 
-            <!-- Display Message if no courses are found -->
-            <div v-if="courses.length === 0" class="mt-4">
-                <p>No courses to display. Please add courses using the form above.</p>
+            <!-- After your calendar, add this new section -->
+            <div class="mt-5">
+                <h3>Your Current Class Schedule</h3>
+                <div class="row">
+                    <div v-for="section in selectedSections" :key="section.courseId" class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ section.courseId }}</h5>
+                                <div class="card-text">
+                                    <p class="mb-2"><i class="bi bi-calendar-date"></i> <strong>Days:</strong> {{ section.daysOfTheWeek }}</p>
+                                    <p class="mb-2"><i class="bi bi-clock"></i> <strong>Time:</strong> {{ section.timeStart }} - {{ section.timeEnd }}</p>
+                                    <p class="mb-2"><i class="bi bi-person"></i> <strong>Instructor:</strong> {{ section.instructor }}</p>
+                                    <p class="mb-2"><i class="bi bi-hash"></i> <strong>Section:</strong> {{ section.sectionNumber }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="selectedSections.length === 0" class="col-12">
+                        <div class="alert alert-info">
+                            No schedule selected. Generate schedules to view your class details.
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-    </main>
+        </main>
+    </div>
 </div>
 
 <footer class="footer mt-auto">
@@ -175,22 +221,41 @@
                 departments: departments,
                 courses: initialData.map(course => ({
                     ...course,
-                    showSections: false,
-                    sections: course.sections || []
+                    showSections: false
                 })),
                 selectedSections: selectedSections,
+                currentScheduleIndex: currentScheduleIndex,
+                scheduleCount: scheduleCount,
+                calendar: null,
                 newCourse: {
                     department: '',
-                    courseId: '',
+                    courseId: ''
                 },
                 flashMessage: {
-                    type: '',
-                    message: ''
+                    message: '',
+                    type: 'info'
                 },
-                calendar: null,
-                currentScheduleIndex: currentScheduleIndex || 0,
-                scheduleCount: scheduleCount || 0,
+                formSubmitted: false,
             };
+        },
+        mounted() {
+            // Get flash messages from Thymeleaf
+            const successMessage = /*[[${successMessage}]]*/ null;
+            const errorMessage = /*[[${errorMessage}]]*/ null;
+
+            if (successMessage) {
+                this.showFlashMessage(successMessage, 'success');
+            }
+            if (errorMessage) {
+                this.showFlashMessage(errorMessage, 'danger');
+            }
+
+            console.log('Departments:', this.departments);
+            console.log('Courses:', this.courses);
+            console.log('Selected Sections:', this.selectedSections);
+            console.log('Current schedule index:', this.currentScheduleIndex);
+            console.log('Schedule count:', this.scheduleCount);
+            this.initCalendar();
         },
         methods: {
             toggleSections(course) {
@@ -202,6 +267,18 @@
                 this.$forceUpdate();
             },
             addCourse() {
+                this.formSubmitted = true;
+
+                if (!this.newCourse.department || !this.newCourse.courseId) {
+                    if (!this.newCourse.department) {
+                        this.showFlashMessage('Please select a department', 'danger');
+                    }
+                    if (!this.newCourse.courseId) {
+                        this.showFlashMessage('Please enter a course ID', 'danger');
+                    }
+                    return;
+                }
+
                 const formData = new FormData();
                 formData.append('department', this.newCourse.department);
                 formData.append('courseId', this.newCourse.courseId);
@@ -212,31 +289,41 @@
                 })
                     .then(response => {
                         if (response.redirected) {
+                            // Store current department
+                            const currentDepartment = this.newCourse.department;
+
                             window.location.href = response.url;
+
+                            // If there's an error, restore the department
+                            if (response.url.includes('errorMessage')) {
+                                this.newCourse.department = currentDepartment;
+                                this.newCourse.courseId = ''; // Clear invalid course ID
+                            }
                         }
                     })
                     .catch(error => {
                         console.error('Error adding course:', error);
-                        this.flashMessage.type = 'danger';
-                        this.flashMessage.message = 'An error occurred while adding the course.';
-                        this.showFlashMessage();
+                        this.showFlashMessage('An error occurred while adding the course.', 'danger');
                     });
             },
             generateSchedules() {
-                fetch('/generateSchedules')
+                fetch('/generateSchedules', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
                     .then(response => {
                         if (response.redirected) {
                             window.location.href = response.url;
                         }
                     })
                     .catch(error => {
-                        console.error('Error generating schedules:', error);
-                        this.flashMessage.type = 'danger';
-                        this.flashMessage.message = 'Error generating schedules.';
+                        console.error('Error:', error);
+                        this.showFlashMessage('Error generating schedules', 'danger');
                     });
             },
             nextSchedule() {
-                console.log('Switching to next schedule...'); // Debug log
                 fetch('/nextSchedule', {
                     method: 'POST',
                     headers: {
@@ -249,13 +336,11 @@
                         }
                     })
                     .catch(error => {
-                        console.error('Error switching to next schedule:', error);
-                        this.flashMessage.type = 'danger';
-                        this.flashMessage.message = 'Error switching to next schedule.';
+                        console.error('Error:', error);
+                        this.showFlashMessage('Error switching to next schedule', 'danger');
                     });
             },
             previousSchedule() {
-                console.log('Switching to previous schedule...'); // Debug log
                 fetch('/previousSchedule', {
                     method: 'POST',
                     headers: {
@@ -268,9 +353,8 @@
                         }
                     })
                     .catch(error => {
-                        console.error('Error switching to previous schedule:', error);
-                        this.flashMessage.type = 'danger';
-                        this.flashMessage.message = 'Error switching to previous schedule.';
+                        console.error('Error:', error);
+                        this.showFlashMessage('Error switching to previous schedule', 'danger');
                     });
             },
             initCalendar() {
@@ -289,7 +373,27 @@
                         slotMinTime: '06:00:00',
                         slotMaxTime: '22:00:00',
                         events: this.generateEvents(this.selectedSections),
-                        eventDisplay: 'block',
+                        eventOverlap: false, // Prevent events from overlapping visually
+                        eventOrder: "start,-duration,title", // Order events by start time
+                        slotEventOverlap: true, // Stack events within the same time slot
+                        eventContent: function (arg) {
+                            return {
+                                html: `
+                        <div class="fc-event-main-frame">
+                            <div class="fc-event-title-container">
+                                <div class="fc-event-title">${arg.event.title}</div>
+                            </div>
+                            <div class="fc-event-time">
+                                ${arg.timeText}
+                            </div>
+                            ${arg.event.extendedProps.instructor ?
+                                    `<div class="fc-event-instructor">
+                                Prof: ${arg.event.extendedProps.instructor}
+                            </div>` : ''}
+                        </div>
+                    `
+                            };
+                        }
                     });
                     this.calendar.render();
                 }
@@ -357,10 +461,14 @@
                 minutes = String(minutes).padStart(2, '0');
                 return `${hours}:${minutes}:00`;
             },
-            showFlashMessage() {
-                // Automatically hide the flash message after 5 seconds
+            showFlashMessage(message, type = 'info') {
+                this.flashMessage.message = message;
+                this.flashMessage.type = type;
+
+                // Increased to 5 seconds (5000ms)
                 setTimeout(() => {
                     this.flashMessage.message = '';
+                    this.flashMessage.type = 'info';
                 }, 5000);
             },
             getCalendarEvents() {
@@ -397,15 +505,88 @@
                     `,
                     allowHTML: true
                 });
+            },
+            removeCourse(course) {
+                const [department, number] = course.courseId.split(' ');
+
+                fetch(`/removeCourse?department=${department}&courseId=${number}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            // Remove from local courses array
+                            const index = this.courses.indexOf(course);
+                            if (index > -1) {
+                                this.courses.splice(index, 1);
+                            }
+
+                            // Clear selected sections and calendar
+                            this.selectedSections = [];
+                            if (this.calendar) {
+                                this.calendar.removeAllEvents();
+                            }
+
+                            // Reset schedule-related data
+                            this.scheduleCount = 0;
+                            this.currentScheduleIndex = 0;
+
+                            this.showFlashMessage('Course removed successfully', 'success');
+                            window.location.reload(); // Reload to ensure everything is in sync
+                        } else {
+                            this.showFlashMessage('Error removing course', 'danger');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error removing course:', error);
+                        this.showFlashMessage('Error removing course', 'danger');
+                    });
+            },
+            createCalendarEvents() {
+                this.calendar.removeAllEvents();
+                this.selectedSections.forEach(section => {
+                    const days = this.parseDays(section.daysOfTheWeek);
+                    days.forEach(day => {
+                        this.calendar.addEvent({
+                            title: section.courseId,
+                            daysOfWeek: [day],
+                            startTime: section.timeStart,
+                            endTime: section.timeEnd,
+                            backgroundColor: this.getRandomColor(section.courseId),
+                            textColor: 'black',  // Add this to ensure text is always visible
+                            borderColor: this.getRandomColor(section.courseId),
+                            opacity: 0.75  // Add some transparency to the background
+                        });
+                    });
+                });
+            },
+            getRandomColor(seed) {
+                // Use pastel or lighter colors to ensure text visibility
+                const colors = [
+                    '#FFB6C1', // light pink
+                    '#98FB98', // pale green
+                    '#87CEFA', // light sky blue
+                    '#DDA0DD', // plum
+                    '#F0E68C', // khaki
+                    '#E6E6FA', // lavender
+                    '#B8E2EF', // light blue
+                    '#FFE4B5', // moccasin
+                    '#98FF98', // mint
+                    '#FFA07A'  // light salmon
+                ];
+
+                const index = Math.abs(this.hashCode(seed)) % colors.length;
+                return colors[index];
+            },
+            hashCode(str) {
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+                }
+                return hash;
             }
-        },
-        mounted() {
-            console.log('Departments:', this.departments);
-            console.log('Courses:', this.courses);
-            console.log('Selected Sections:', this.selectedSections);
-            console.log('Current schedule index:', this.currentScheduleIndex); // Debug log
-            console.log('Schedule count:', this.scheduleCount); // Debug log
-            this.initCalendar();
         },
         watch: {
             selectedSections: {
@@ -417,6 +598,54 @@
         },
     }).mount('#app');
 </script>
+
+<style>
+    .calendar-event {
+        border-radius: 4px;
+        padding: 2px 4px;
+        font-size: 0.9em;
+        font-weight: 500;
+    }
+
+    /* Style the event title */
+    .fc-event-title {
+        padding: 2px;
+        white-space: pre-wrap;  /* This allows line breaks */
+    }
+
+    /* Add some hover effects */
+    .fc-event:hover {
+        opacity: 0.9;
+        cursor: pointer;
+    }
+
+    /* Make the time more visible */
+    .fc-event-time {
+        font-weight: 500;
+        padding: 2px;
+    }
+
+    /* Fix for time overlay */
+    .fc-event-time {
+        background-color: transparent !important;
+        color: inherit !important;
+    }
+
+    /* Center the title */
+    .fc-toolbar-title {
+        text-align: center;
+        width: 100%;
+    }
+
+    /* Make sure events are readable */
+    .fc-event {
+        padding: 2px 0;
+    }
+
+    .fc-event-title {
+        padding: 0 2px;
+    }
+</style>
 
 </body>
 </html>
