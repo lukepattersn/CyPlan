@@ -51,3 +51,6 @@ https://www.linkedin.com/in/lukepatt/
 ### Jared Cheney
 Focused on algorithm development and parsing within CyPlan, optimizing scheduling generation functionalities for ISU students.
 https://www.linkedin.com/in/jared-cheney-68b987296/
+
+## Notes
+Right now, as of 11/17/2024, CyPlan only generates courses for the Spring semester. A term field will be added in the future but not needed right now. 
