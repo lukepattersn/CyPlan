@@ -42,10 +42,12 @@ In the future, we plan to integrate AI capabilities to further optimize scheduli
 
 ### Jeremiah Baccam
 Managed API development, interfacing with Iowa State's data repository. Worked across frontend to backend, also contributing to frontend styling and backend logic.
+https://www.linkedin.com/in/jeremiah-baccam/
 
 ### Luke Patterson
 Handled frontend development, creating a user-friendly interface using HTML, CSS, Bootstrap, and FullCalendar.js. Contributed to backend design and logic for seamless integration.
+https://www.linkedin.com/in/lukepatt/
 
 ### Jared Cheney
 Focused on algorithm development and parsing within CyPlan, optimizing scheduling generation functionalities for ISU students.
-
+https://www.linkedin.com/in/jared-cheney-68b987296/
