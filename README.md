@@ -28,7 +28,8 @@ CyPlan was not just about building a tool but also about learning and growth. It
 
 ## What's Next for CyPlan
 
-In the future, we plan to integrate AI capabilities to further optimize scheduling based on user preferences and constraints. We're also refining our frontend framework to ensure smoother user interactions and schedule generation.
+In the future, we plan to integrate AI capabilities to further optimize scheduling based on user preferences and constraints. We're also refining our frontend framework to ensure smoother user interactions and schedule generation. We also
+plan to add user prefence, such as a certain desired section they want in their schedule, starting / ending times, etc.
 
 ## Built With
 
