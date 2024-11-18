@@ -287,24 +287,17 @@
                     method: 'POST',
                     body: formData
                 })
-                    .then(response => {
-                        if (response.redirected) {
-                            // Store current department
-                            const currentDepartment = this.newCourse.department;
-
-                            window.location.href = response.url;
-
-                            // If there's an error, restore the department
-                            if (response.url.includes('errorMessage')) {
-                                this.newCourse.department = currentDepartment;
-                                this.newCourse.courseId = ''; // Clear invalid course ID
-                            }
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error adding course:', error);
-                        this.showFlashMessage('An error occurred while adding the course.', 'danger');
-                    });
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    window.location.reload(); // Force reload after successful addition
+                })
+                .catch(error => {
+                    console.error('Error adding course:', error);
+                    this.showFlashMessage('An error occurred while adding the course.', 'danger');
+                    setTimeout(() => window.location.reload(), 1000); // Reload after error
+                });
             },
             generateSchedules() {
                 fetch('/generateSchedules', {
@@ -313,15 +306,17 @@
                         'Content-Type': 'application/json',
                     }
                 })
-                    .then(response => {
-                        if (response.redirected) {
-                            window.location.href = response.url;
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        this.showFlashMessage('Error generating schedules', 'danger');
-                    });
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    window.location.reload(); // Force reload after successful generation
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    this.showFlashMessage('Error generating schedules', 'danger');
+                    setTimeout(() => window.location.reload(), 1000); // Reload after error
+                });
             },
             nextSchedule() {
                 fetch('/nextSchedule', {
@@ -330,15 +325,17 @@
                         'Content-Type': 'application/json',
                     }
                 })
-                    .then(response => {
-                        if (response.redirected) {
-                            window.location.href = response.url;
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        this.showFlashMessage('Error switching to next schedule', 'danger');
-                    });
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    window.location.reload(); // Force reload after successful navigation
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    this.showFlashMessage('Error switching to next schedule', 'danger');
+                    setTimeout(() => window.location.reload(), 1000); // Reload after error
+                });
             },
             previousSchedule() {
                 fetch('/previousSchedule', {
@@ -347,15 +344,17 @@
                         'Content-Type': 'application/json',
                     }
                 })
-                    .then(response => {
-                        if (response.redirected) {
-                            window.location.href = response.url;
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        this.showFlashMessage('Error switching to previous schedule', 'danger');
-                    });
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    window.location.reload(); // Force reload after successful navigation
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    this.showFlashMessage('Error switching to previous schedule', 'danger');
+                    setTimeout(() => window.location.reload(), 1000); // Reload after error
+                });
             },
             initCalendar() {
                 const calendarEl = document.getElementById('calendar');
@@ -515,34 +514,17 @@
                         'Content-Type': 'application/json'
                     }
                 })
-                    .then(response => {
-                        if (response.ok) {
-                            // Remove from local courses array
-                            const index = this.courses.indexOf(course);
-                            if (index > -1) {
-                                this.courses.splice(index, 1);
-                            }
-
-                            // Clear selected sections and calendar
-                            this.selectedSections = [];
-                            if (this.calendar) {
-                                this.calendar.removeAllEvents();
-                            }
-
-                            // Reset schedule-related data
-                            this.scheduleCount = 0;
-                            this.currentScheduleIndex = 0;
-
-                            this.showFlashMessage('Course removed successfully', 'success');
-                            window.location.reload(); // Reload to ensure everything is in sync
-                        } else {
-                            this.showFlashMessage('Error removing course', 'danger');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error removing course:', error);
-                        this.showFlashMessage('Error removing course', 'danger');
-                    });
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    window.location.reload(); // Force reload after successful removal
+                })
+                .catch(error => {
+                    console.error('Error removing course:', error);
+                    this.showFlashMessage('Error removing course', 'danger');
+                    setTimeout(() => window.location.reload(), 1000); // Reload after error
+                });
             },
             createCalendarEvents() {
                 this.calendar.removeAllEvents();
