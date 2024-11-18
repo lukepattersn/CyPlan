@@ -10,7 +10,9 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.*;
@@ -21,9 +23,10 @@ public class HomeController {
     @Autowired
     private ApiService apiService;
 
-    // Add lists to store course and section indices
-    private List<Integer> courseIndices = new ArrayList<>();
-    private List<Integer> sectionIndices = new ArrayList<>();
+    @SuppressWarnings("unchecked")
+    private List<Map<Course, Section>> getSchedulesFromSession(HttpSession session) {
+        return (List<Map<Course, Section>>) session.getAttribute("generatedSchedules");
+    }
 
     @GetMapping("/")
     public String home(@RequestParam(required = false, defaultValue = "ACADEMIC_PERIOD-2025Spring") String academicPeriod,
@@ -32,47 +35,39 @@ public class HomeController {
         try {
             // Fetch departments
             String departmentsJson = apiService.fetchDepartments(academicPeriod);
-
-            // Parse the JSON response
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode rootNode = objectMapper.readTree(departmentsJson);
-            JsonNode departmentsNode = rootNode.path("data");
-
             List<String> departments = new ArrayList<>();
-            if (departmentsNode.isArray()) {
-                for (JsonNode departmentNode : departmentsNode) {
-                    departments.add(departmentNode.asText());
-                }
-            }
 
-            // Add departments to the model
+            rootNode.path("data").forEach(departmentNode -> departments.add(departmentNode.asText()));
+
             model.addAttribute("departments", departments);
 
-            // Retrieve the list of courses from the session
+            // Get courses and selected sections from session
+            @SuppressWarnings("unchecked")
             List<Course> courses = (List<Course>) session.getAttribute("courses");
             if (courses == null) {
                 courses = new ArrayList<>();
-                session.setAttribute("courses", courses);
             }
             model.addAttribute("courses", courses);
 
-            // Get the generated schedules from the session
-            List<Map<Course, Section>> schedules = (List<Map<Course, Section>>) session.getAttribute("generatedSchedules");
-            Integer currentScheduleIndex = (Integer) session.getAttribute("currentScheduleIndex");
-
-            if (schedules != null && !schedules.isEmpty()) {
-                Map<Course, Section> currentSchedule = schedules.get(currentScheduleIndex);
-                model.addAttribute("selectedSections", currentSchedule.values());
-                model.addAttribute("hasSchedules", true);
-            } else {
-                model.addAttribute("selectedSections", Collections.emptyList());
-                model.addAttribute("hasSchedules", false);
+            @SuppressWarnings("unchecked")
+            List<Section> selectedSections = (List<Section>) session.getAttribute("selectedSections");
+            if (selectedSections == null) {
+                selectedSections = new ArrayList<>();
             }
+            model.addAttribute("selectedSections", selectedSections);
+
+            // Add schedule navigation information
+            List<Map<Course, Section>> schedules = getSchedulesFromSession(session);
+            Integer currentIndex = (Integer) session.getAttribute("currentScheduleIndex");
+
+            model.addAttribute("scheduleCount", schedules != null ? schedules.size() : 0);
+            model.addAttribute("currentScheduleIndex", currentIndex != null ? currentIndex : 0);
 
         } catch (Exception e) {
-            // Fallback handling
-            model.addAttribute("departments", Collections.singletonList("Error fetching departments. Please try again later."));
-            model.addAttribute("courses", new ArrayList<Course>());
+            model.addAttribute("departments", Collections.singletonList("Error fetching departments."));
+            model.addAttribute("courses", new ArrayList<>());
             e.printStackTrace();
         }
 
@@ -84,7 +79,6 @@ public class HomeController {
                             @RequestParam String courseId,
                             @RequestParam(required = false, defaultValue = "ACADEMIC_PERIOD-2025Spring") String academicPeriodId,
                             RedirectAttributes redirectAttributes,
-                            Model model,
                             HttpSession session) {
         try {
             // Fetch and parse courses for the given department and courseId
@@ -93,68 +87,73 @@ public class HomeController {
             JsonNode rootNode = objectMapper.readTree(coursesJson);
             JsonNode dataNode = rootNode.path("data");
 
-            List<Course> courses = new ArrayList<>();
-            if (dataNode.isArray() && dataNode.size() > 0) {
-                for (JsonNode courseNode : dataNode) {
-                    String courseIdParsed = courseNode.path("courseId").asText();
-                    String courseName = courseNode.path("courseName").asText();
-                    String description = courseNode.path("description").asText();
-
-                    Course course = new Course(courseIdParsed, courseName, description);
-                    JsonNode sectionsNode = courseNode.path("sections");
-                    if (sectionsNode.isArray()) {
-                        for (JsonNode sectionNode : sectionsNode) {
-                            // Safely handle meetingPatterns
-                            String meetingPatterns = null;
-                            if (!sectionNode.path("meetingPatterns").isMissingNode()) {
-                                meetingPatterns = sectionNode.path("meetingPatterns").asText();
-                            }
-
-                            int openSeats = sectionNode.path("openSeats").asInt();
-                            String instructor = sectionNode.path("instructor").asText();
-                            String sectionNumber = sectionNode.path("number").asText();
-
-                            String daysOfTheWeek = "Online";
-                            String timeStart = "N/A";
-                            String timeEnd = "N/A";
-
-                            if (meetingPatterns != null && !meetingPatterns.isEmpty()) {
-                                String[] meetingParts = meetingPatterns.split("\\|");
-                                if (meetingParts.length >= 2) {
-                                    daysOfTheWeek = convertDaysOfWeek(meetingParts[0].trim());
-                                    String[] times = meetingParts[1].split("-");
-                                    if (times.length >= 2) {
-                                        timeStart = times[0].trim();
-                                        timeEnd = times[1].trim();
-                                    }
-                                }
-                            }
-
-                            Section section = new Section(daysOfTheWeek, openSeats, instructor, courseIdParsed, timeStart, timeEnd, sectionNumber);
-                            course.addSection(section);
-                        }
-                    }
-                    courses.add(course);
-                }
-
-                // Add success message
-                redirectAttributes.addFlashAttribute("successMessage", "Course successfully added!");
-            } else {
+            if (!dataNode.isArray() || dataNode.size() == 0) {
                 // Add error message if no courses found
                 redirectAttributes.addFlashAttribute("errorMessage", "No courses found for the given input.");
+                return "redirect:/";
             }
 
-            // Retrieve the list of courses from the session and add the new courses
+            List<Course> newCourses = new ArrayList<>();
+            for (JsonNode courseNode : dataNode) {
+                String courseIdParsed = courseNode.path("courseId").asText();
+                String courseName = courseNode.path("courseName").asText();
+                String description = courseNode.path("description").asText();
+
+                // Create the course object
+                Course course = new Course(courseIdParsed, courseName, description);
+
+                // Parse sections for the course
+                JsonNode sectionsNode = courseNode.path("sections");
+                if (sectionsNode.isArray()) {
+                    for (JsonNode sectionNode : sectionsNode) {
+                        String meetingPatterns = sectionNode.path("meetingPatterns").asText("");
+                        String daysOfTheWeek = "Online";
+                        String timeStart = "N/A";
+                        String timeEnd = "N/A";
+
+                        if (!meetingPatterns.isEmpty()) {
+                            String[] meetingParts = meetingPatterns.split("\\|");
+                            if (meetingParts.length >= 2) {
+                                daysOfTheWeek = convertDaysOfWeek(meetingParts[0].trim());
+                                String[] times = meetingParts[1].split("-");
+                                if (times.length >= 2) {
+                                    timeStart = times[0].trim();
+                                    timeEnd = times[1].trim();
+                                }
+                            }
+                        }
+
+                        Section section = new Section(
+                                daysOfTheWeek,
+                                sectionNode.path("openSeats").asInt(),
+                                sectionNode.path("instructor").asText(),
+                                courseIdParsed,
+                                timeStart,
+                                timeEnd,
+                                sectionNode.path("number").asText()
+                        );
+                        course.addSection(section);
+                    }
+                }
+
+                newCourses.add(course);
+            }
+
+            // Retrieve existing courses from session or create a new list
             List<Course> sessionCourses = (List<Course>) session.getAttribute("courses");
             if (sessionCourses == null) {
                 sessionCourses = new ArrayList<>();
             }
-            sessionCourses.addAll(courses);
+
+            // Add new courses to the session course list
+            sessionCourses.addAll(newCourses);
             session.setAttribute("courses", sessionCourses);
 
             // Clear any previously generated schedules
             session.removeAttribute("generatedSchedules");
             session.removeAttribute("currentScheduleIndex");
+
+            redirectAttributes.addFlashAttribute("successMessage", "Course successfully added!");
 
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage", "Error fetching courses. Please try again later.");
@@ -165,6 +164,7 @@ public class HomeController {
         return "redirect:/";
     }
 
+
     @GetMapping("/generateSchedules")
     public String generateSchedules(HttpSession session, RedirectAttributes redirectAttributes) {
         List<Course> courses = (List<Course>) session.getAttribute("courses");
@@ -173,15 +173,16 @@ public class HomeController {
             return "redirect:/";
         }
 
-        // Generate schedules
-        List<Map<Course, Section>> schedules = ScheduleBuilder.generateNonConflictingSchedules(courses, 10); // Generate up to 10 schedules
-
+        List<Map<Course, Section>> schedules = ScheduleBuilder.generateNonConflictingSchedules(courses, 10);
         if (schedules.isEmpty()) {
-            redirectAttributes.addFlashAttribute("errorMessage", "No possible schedules found without conflicts.");
+            redirectAttributes.addFlashAttribute("errorMessage", "No possible schedules found.");
         } else {
             session.setAttribute("generatedSchedules", schedules);
-            // Set the current schedule index to 0
             session.setAttribute("currentScheduleIndex", 0);
+
+            Map<Course, Section> firstSchedule = schedules.get(0);
+            session.setAttribute("selectedSections", new ArrayList<>(firstSchedule.values()));
+
             redirectAttributes.addFlashAttribute("successMessage", "Schedules generated successfully.");
         }
 
@@ -190,28 +191,55 @@ public class HomeController {
 
     @PostMapping("/nextSchedule")
     public String nextSchedule(HttpSession session, RedirectAttributes redirectAttributes) {
-        List<Map<Course, Section>> schedules = (List<Map<Course, Section>>) session.getAttribute("generatedSchedules");
+        List<Map<Course, Section>> schedules = getSchedulesFromSession(session);
         Integer currentScheduleIndex = (Integer) session.getAttribute("currentScheduleIndex");
 
-        if (schedules != null && !schedules.isEmpty()) {
-            currentScheduleIndex = (currentScheduleIndex + 1) % schedules.size();
-            session.setAttribute("currentScheduleIndex", currentScheduleIndex);
-            redirectAttributes.addFlashAttribute("successMessage", "Switched to the next schedule.");
-        } else {
+        if (schedules == null || schedules.isEmpty()) {
             redirectAttributes.addFlashAttribute("errorMessage", "No schedules available.");
+            return "redirect:/";
         }
 
+        currentScheduleIndex = (currentScheduleIndex + 1) % schedules.size();
+        session.setAttribute("currentScheduleIndex", currentScheduleIndex);
+
+        Map<Course, Section> nextSchedule = schedules.get(currentScheduleIndex);
+        session.setAttribute("selectedSections", new ArrayList<>(nextSchedule.values()));
+
+        redirectAttributes.addFlashAttribute("successMessage", "Switched to the next schedule.");
+        return "redirect:/";
+    }
+
+    @PostMapping("/previousSchedule")
+    public String previousSchedule(HttpSession session, RedirectAttributes redirectAttributes) {
+        List<Map<Course, Section>> schedules = getSchedulesFromSession(session);
+        Integer currentScheduleIndex = (Integer) session.getAttribute("currentScheduleIndex");
+
+        if (schedules == null || schedules.isEmpty()) {
+            redirectAttributes.addFlashAttribute("errorMessage", "No schedules available.");
+            return "redirect:/";
+        }
+
+        // Decrement index and handle wrap-around
+        currentScheduleIndex = (currentScheduleIndex - 1 + schedules.size()) % schedules.size();
+        session.setAttribute("currentScheduleIndex", currentScheduleIndex);
+
+        Map<Course, Section> previousSchedule = schedules.get(currentScheduleIndex);
+        session.setAttribute("selectedSections", new ArrayList<>(previousSchedule.values()));
+
+        redirectAttributes.addFlashAttribute("successMessage", "Switched to the previous schedule.");
         return "redirect:/";
     }
 
     private String convertDaysOfWeek(String daysOfTheWeek) {
-        daysOfTheWeek = daysOfTheWeek.toUpperCase(); // Ensure uppercase for consistent parsing
         return daysOfTheWeek
-                .replace("M", "Monday ")
-                .replace("T", "Tuesday ")
-                .replace("W", "Wednesday ")
-                .replace("R", "Thursday ")
-                .replace("F", "Friday ")
-                .trim();
+                .replace("M", "Monday,")
+                .replace("T", "Tuesday,")
+                .replace("W", "Wednesday,")
+                .replace("R", "Thursday,")
+                .replace("F", "Friday,")
+                .replace("S", "Saturday,")
+                .replace("U", "Sunday,")
+                .replaceAll(",+$", ""); // Remove trailing comma
     }
+
 }

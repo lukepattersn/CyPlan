@@ -1,101 +1,77 @@
 package com.schedulebuilder.class_scheduler.model;
 
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class ScheduleBuilder {
 
-    public static List<Map<Course, Section>> generateNonConflictingSchedules(List<Course> courses, int numberOfSchedules) {
+    /**
+     * Generates non-conflicting schedules for the given courses.
+     *
+     * @param courses       List of courses to generate schedules for.
+     * @param maxSchedules  Maximum number of schedules to generate.
+     * @return List of non-conflicting schedules (maps of Course -> Section).
+     */
+    public static List<Map<Course, Section>> generateNonConflictingSchedules(List<Course> courses, int maxSchedules) {
         List<Map<Course, Section>> schedules = new ArrayList<>();
-
-        // Get all possible combinations of sections
-        List<List<Section>> allSections = new ArrayList<>();
-        for (Course course : courses) {
-            allSections.add(course.getSections());
-        }
-
-        // Generate all possible combinations
-        List<List<Section>> allCombinations = cartesianProduct(allSections);
-
-        // Shuffle the combinations to randomize the schedules
-        Collections.shuffle(allCombinations);
-
-        // DateTimeFormatter for parsing time strings
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
-
-        for (List<Section> combination : allCombinations) {
-            if (schedules.size() >= numberOfSchedules) {
-                break;
-            }
-
-            if (isNonConflicting(combination, timeFormatter)) {
-                Map<Course, Section> schedule = new HashMap<>();
-                for (int i = 0; i < courses.size(); i++) {
-                    schedule.put(courses.get(i), combination.get(i));
-                }
-                schedules.add(schedule);
-            }
-        }
-
+        generateSchedulesRecursive(courses, 0, new HashMap<>(), schedules, maxSchedules);
         return schedules;
     }
 
-    private static boolean isNonConflicting(List<Section> sections, DateTimeFormatter timeFormatter) {
-        // Check for time conflicts between sections
-        for (int i = 0; i < sections.size(); i++) {
-            Section s1 = sections.get(i);
-            if (s1.getTimeStart().equals("N/A") || s1.getTimeEnd().equals("N/A")) {
-                continue; // Skip sections without time
+    private static void generateSchedulesRecursive(List<Course> courses, int courseIndex, Map<Course, Section> currentSchedule,
+                                                   List<Map<Course, Section>> schedules, int maxSchedules) {
+        if (schedules.size() >= maxSchedules) {
+            return; // Stop once the desired number of schedules is reached
+        }
+
+        if (courseIndex == courses.size()) {
+            // Base case: Add the current schedule if it's valid
+            if (!hasConflicts(currentSchedule)) {
+                schedules.add(new HashMap<>(currentSchedule));
             }
-            List<String> days1 = Arrays.asList(s1.getDaysOfTheWeek().split(", "));
+            return;
+        }
 
-            LocalTime start1 = LocalTime.parse(s1.getTimeStart(), timeFormatter);
-            LocalTime end1 = LocalTime.parse(s1.getTimeEnd(), timeFormatter);
+        Course course = courses.get(courseIndex);
+        for (Section section : course.getSections()) {
+            currentSchedule.put(course, section); // Add the section to the current schedule
+            generateSchedulesRecursive(courses, courseIndex + 1, currentSchedule, schedules, maxSchedules);
+            currentSchedule.remove(course); // Backtrack to try other combinations
+        }
+    }
 
+    private static boolean hasConflicts(Map<Course, Section> schedule) {
+        List<Section> sections = new ArrayList<>(schedule.values());
+
+        for (int i = 0; i < sections.size(); i++) {
             for (int j = i + 1; j < sections.size(); j++) {
-                Section s2 = sections.get(j);
-                if (s2.getTimeStart().equals("N/A") || s2.getTimeEnd().equals("N/A")) {
-                    continue; // Skip sections without time
+                if (sectionsConflict(sections.get(i), sections.get(j))) {
+                    return true;
                 }
-                List<String> days2 = Arrays.asList(s2.getDaysOfTheWeek().split(", "));
+            }
+        }
+        return false;
+    }
 
-                // Check if the sections occur on the same days
-                Set<String> commonDays = new HashSet<>(days1);
-                commonDays.retainAll(days2);
-                if (!commonDays.isEmpty()) {
-                    LocalTime start2 = LocalTime.parse(s2.getTimeStart(), timeFormatter);
-                    LocalTime end2 = LocalTime.parse(s2.getTimeEnd(), timeFormatter);
-
-                    // Check for time overlap
-                    if (start1.isBefore(end2) && start2.isBefore(end1)) {
-                        // Time conflict detected
-                        return false;
+    private static boolean sectionsConflict(Section section1, Section section2) {
+        // If days of the week overlap
+        for (String day1 : section1.getDaysOfTheWeek().split(",")) {
+            for (String day2 : section2.getDaysOfTheWeek().split(",")) {
+                if (day1.trim().equals(day2.trim())) {
+                    // If times overlap
+                    if (timesOverlap(section1.getTimeStart(), section1.getTimeEnd(),
+                            section2.getTimeStart(), section2.getTimeEnd())) {
+                        return true;
                     }
                 }
             }
         }
-        return true; // No conflicts
+        return false;
     }
 
-    // Utility method to compute cartesian product of lists
-    private static List<List<Section>> cartesianProduct(List<List<Section>> lists) {
-        List<List<Section>> resultLists = new ArrayList<>();
-        if (lists.isEmpty()) {
-            resultLists.add(new ArrayList<>());
-            return resultLists;
-        } else {
-            List<Section> firstList = lists.get(0);
-            List<List<Section>> remainingLists = cartesianProduct(lists.subList(1, lists.size()));
-            for (Section condition : firstList) {
-                for (List<Section> remainingList : remainingLists) {
-                    ArrayList<Section> resultList = new ArrayList<>();
-                    resultList.add(condition);
-                    resultList.addAll(remainingList);
-                    resultLists.add(resultList);
-                }
-            }
-        }
-        return resultLists;
+    private static boolean timesOverlap(String start1, String end1, String start2, String end2) {
+        return !(end1.compareTo(start2) <= 0 || start1.compareTo(end2) >= 0);
     }
 }
