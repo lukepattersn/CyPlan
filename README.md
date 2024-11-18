@@ -47,7 +47,7 @@ Managed API development, interfacing with Iowa State's data repository. Worked a
 https://www.linkedin.com/in/jeremiah-baccam/
 
 ### Luke Patterson
-Handled frontend development, creating a user-friendly interface using HTML, CSS, Bootstrap, and FullCalendar.js. Contributed to backend design and logic for seamless integration.
+Discovered functionality for integrating Iowa State's course API by analyzing HTTP GET and POST requests on the network. Handled frontend development, creating a user-friendly interface using HTML, CSS, Bootstrap, and FullCalendar.js.
 https://www.linkedin.com/in/lukepatt/
 
 ### Jared Cheney
