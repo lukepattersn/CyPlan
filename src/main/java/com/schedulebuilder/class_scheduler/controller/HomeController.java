@@ -173,7 +173,8 @@ public class HomeController {
             return "redirect:/";
         }
 
-        List<Map<Course, Section>> schedules = ScheduleBuilder.generateNonConflictingSchedules(courses, 10);
+        // Limit to 100 schedules for better performance
+        List<Map<Course, Section>> schedules = ScheduleBuilder.generateNonConflictingSchedules(courses, 100);
         if (schedules.isEmpty()) {
             redirectAttributes.addFlashAttribute("errorMessage", "No possible schedules found.");
         } else {
