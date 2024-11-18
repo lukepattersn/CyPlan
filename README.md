@@ -1,4 +1,5 @@
-# CyPlan: Simplifying Course Planning for ISU Students
+#### Deployed at https://www.cy-plan.com
+### CyPlan: Simplifying Course Planning for ISU Students
 
 CyPlan is your go-to tool for efficiently organizing your course schedule at Iowa State University. Designed with simplicity and effectiveness in mind, CyPlan helps you manage your academic calendar effortlessly.
 
