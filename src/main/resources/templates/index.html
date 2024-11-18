@@ -49,7 +49,7 @@
 <div id="app" class="container mt-5 content-wrapper">
     <main>
         <h1 class="mb-4">Welcome to CyPlan!</h1>
-        <p>Class planner for ISU students to simplify your schedule planning because workdays make everything difficult.</p>
+        <p>Class planner for ISU students to simplify your schedule planning because workday makes everything difficult.</p>
 
         <div class="mb-5">
             <!-- Course Addition Form -->
@@ -362,6 +362,41 @@
                 setTimeout(() => {
                     this.flashMessage.message = '';
                 }, 5000);
+            },
+            getCalendarEvents() {
+                const events = [];
+                for (const section of this.selectedSections) {
+                    const days = section.daysOfTheWeek.split(',');
+                    for (const day of days) {
+                        if (day.trim()) {
+                            const event = {
+                                title: `${section.courseId}\n${section.instructor}`, // Add instructor name
+                                startTime: section.timeStart,
+                                endTime: section.timeEnd,
+                                daysOfWeek: [this.getDayNumber(day.trim())],
+                                backgroundColor: this.getCourseColor(section.courseId),
+                                borderColor: this.getCourseColor(section.courseId),
+                                extendedProps: {
+                                    section: section.sectionNumber,
+                                    instructor: section.instructor
+                                }
+                            };
+                            events.push(event);
+                        }
+                    }
+                }
+                return events;
+            },
+            // Add tooltip to show more details
+            eventDidMount(info) {
+                tippy(info.el, {
+                    content: `
+                        ${info.event.title}
+                        Section: ${info.event.extendedProps.section}
+                        Instructor: ${info.event.extendedProps.instructor}
+                    `,
+                    allowHTML: true
+                });
             }
         },
         mounted() {
@@ -382,167 +417,6 @@
         },
     }).mount('#app');
 </script>
-
-<style>
-    .section-list {
-        max-height: 400px;
-        overflow-y: auto;
-        transition: all 0.3s ease;
-    }
-
-    .section-list .list-group-item {
-        border-radius: 0;
-        border-left: none;
-        border-right: none;
-    }
-
-    .section-list .list-group-item:first-child {
-        border-top: 1px solid rgba(0,0,0,.125);
-    }
-
-    /* Transition effects */
-    .fade-enter-active, .fade-leave-active {
-        transition: opacity 0.3s ease;
-    }
-
-    .fade-enter-from, .fade-leave-to {
-        opacity: 0;
-    }
-
-    /* Scrollbar styling */
-    .section-list::-webkit-scrollbar {
-        width: 6px;
-    }
-
-    .section-list::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 3px;
-    }
-
-    .section-list::-webkit-scrollbar-thumb {
-        background-color: #C8102E;
-        border-radius: 3px;
-    }
-
-    /* Card styling */
-    .card {
-        transition: all 0.3s ease;
-    }
-
-    .card:hover {
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-
-    .card-footer {
-        background-color: transparent;
-        border-top: none;
-        padding: 1rem;
-    }
-
-    .btn-secondary {
-        background-color: #6c757d;
-        border: none;
-        transition: all 0.3s ease;
-    }
-
-    .btn-secondary:hover {
-        background-color: #5a6268;
-        transform: translateY(-1px);
-    }
-
-    .gap-2 {
-        gap: 0.5rem;
-    }
-
-    .schedule-navigation {
-        margin: 20px 0;
-        padding: 15px;
-        background-color: #ffffff;
-        border-radius: 10px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .gap-3 {
-        gap: 1rem !important;
-    }
-
-    /* Optional: Add hover effects for the buttons */
-    .btn-primary:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    }
-
-    /* Section styling */
-    .sections-container {
-        margin-top: 1rem;
-    }
-
-    .sections-dropdown {
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        overflow: hidden;
-    }
-
-    .section-item {
-        border-bottom: 1px solid #dee2e6;
-        padding: 0.75rem;
-    }
-
-    .section-item:last-child {
-        border-bottom: none;
-    }
-
-    .section-header {
-        font-weight: 600;
-        color: #C8102E;
-        margin-bottom: 0.5rem;
-    }
-
-    .section-details {
-        font-size: 0.9rem;
-    }
-
-    .detail-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 0.25rem;
-    }
-
-    .detail-label {
-        color: #6c757d;
-        font-weight: 500;
-    }
-
-    .detail-value {
-        color: #212529;
-    }
-
-    /* Transition animations */
-    .slide-fade-enter-active {
-        transition: all 0.3s ease-out;
-    }
-
-    .slide-fade-leave-active {
-        transition: all 0.3s cubic-bezier(1, 0.5, 0.8, 1);
-    }
-
-    .slide-fade-enter-from,
-    .slide-fade-leave-to {
-        transform: translateY(-10px);
-        opacity: 0;
-    }
-
-    /* Button styling */
-    .btn-outline-primary {
-        color: #C8102E;
-        border-color: #C8102E;
-    }
-
-    .btn-outline-primary:hover {
-        background-color: #C8102E;
-        color: white;
-    }
-</style>
 
 </body>
 </html>
