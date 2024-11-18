@@ -327,3 +327,425 @@ form .form-label {
     padding: 10px 15px;
 }
 
+/* Update the schedule navigation styling */
+.schedule-navigation-compact {
+    margin: 20px 0;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.schedule-counter {
+    font-size: 1rem;
+    color: #495057;
+    font-weight: 500;
+}
+
+/* Smooth transition effects */
+.fade-enter-active, .fade-leave-active {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-enter-from, .fade-leave-to {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.fade-enter-to, .fade-leave-from {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Optional: Make the buttons more compact */
+.schedule-navigation-compact .btn {
+    padding: 0.375rem 0.75rem;
+}
+
+/* Section styling */
+.sections-container {
+    margin-top: 1rem;
+}
+
+.sections-dropdown {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.section-item {
+    border-bottom: 1px solid #dee2e6;
+    padding: 0.75rem;
+}
+
+.section-item:last-child {
+    border-bottom: none;
+}
+
+.section-header {
+    font-weight: 600;
+    color: #C8102E;
+    margin-bottom: 0.5rem;
+}
+
+.section-details {
+    font-size: 0.9rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+}
+
+.detail-label {
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.detail-value {
+    color: #212529;
+}
+
+/* Transition animations */
+.slide-fade-enter-active {
+    transition: all 0.3s ease-out;
+}
+
+.slide-fade-leave-active {
+    transition: all 0.3s cubic-bezier(1, 0.5, 0.8, 1);
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+    transform: translateY(-10px);
+    opacity: 0;
+}
+
+/* Button styling */
+.btn-outline-primary {
+    color: #C8102E;
+    border-color: #C8102E;
+}
+
+.btn-outline-primary:hover {
+    background-color: #C8102E;
+    color: white;
+}
+
+/* Add these styles for calendar events */
+.fc-event-title {
+    font-size: 0.9em;
+    white-space: pre-line !important;
+    padding: 2px;
+}
+
+.fc-event {
+    cursor: pointer;
+}
+
+.fc-event-main {
+    padding: 2px;
+}
+
+/* Header Styles */
+.header {
+    background-color: #C8102E;
+    padding: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.logo {
+    height: 50px;
+    width: auto;
+}
+
+.CyPlan {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: white;
+    letter-spacing: 2px;
+}
+
+/* Layout Styles */
+.content-wrapper {
+    flex: 1;
+}
+
+.line-break {
+    margin: 1rem 0;
+    border-color: #dee2e6;
+}
+
+/* Form Styles */
+.form-select, .form-control {
+    border-radius: 0.5rem;
+}
+
+/* Card Styles */
+.card {
+    transition: all 0.3s ease;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.card-footer {
+    background-color: transparent;
+    border-top: none;
+    padding: 1rem;
+}
+
+/* Button Styles */
+.btn {
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background-color: #C8102E;
+    border-color: #C8102E;
+}
+
+.btn-primary:hover {
+    background-color: #a00d25;
+    border-color: #a00d25;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.btn-outline-primary {
+    color: #C8102E;
+    border-color: #C8102E;
+}
+
+.btn-outline-primary:hover {
+    background-color: #C8102E;
+    color: white;
+}
+
+/* Gap Utilities */
+.gap-2 {
+    gap: 0.5rem;
+}
+
+.gap-3 {
+    gap: 1rem !important;
+}
+
+/* Schedule Navigation */
+.schedule-navigation {
+    margin: 20px 0;
+    padding: 15px;
+    background-color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.schedule-navigation-compact {
+    margin: 20px 0;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.schedule-counter {
+    font-size: 1rem;
+    color: #495057;
+    font-weight: 500;
+}
+
+/* Section Styles */
+.sections-container {
+    margin-top: 1rem;
+}
+
+.sections-dropdown {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.section-item {
+    border-bottom: 1px solid #dee2e6;
+    padding: 0.75rem;
+}
+
+.section-item:last-child {
+    border-bottom: none;
+}
+
+.section-header {
+    font-weight: 600;
+    color: #C8102E;
+    margin-bottom: 0.5rem;
+}
+
+.section-details {
+    font-size: 0.9rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+}
+
+.detail-label {
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.detail-value {
+    color: #212529;
+}
+
+/* Calendar Styles */
+.fc-event-title {
+    font-size: 0.9em;
+    white-space: pre-line !important;
+    padding: 2px;
+}
+
+.fc-event {
+    cursor: pointer;
+}
+
+.fc-event-main {
+    padding: 2px;
+}
+
+/* Transition Animations */
+.slide-fade-enter-active {
+    transition: all 0.3s ease-out;
+}
+
+.slide-fade-leave-active {
+    transition: all 0.3s cubic-bezier(1, 0.5, 0.8, 1);
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+    transform: translateY(-10px);
+    opacity: 0;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.fade-enter-to,
+.fade-leave-from {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Flash Message Styles */
+.alert {
+    position: relative;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid transparent;
+    border-radius: 0;
+}
+
+.alert-success {
+    color: #155724;
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+}
+
+.alert-danger {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+.alert-info {
+    color: #000000;
+    background-color: #ecb648;
+    border-color: #d8a225;
+}
+
+/* Style the header buttons (prev, next, today) */
+.fc .fc-button-primary {
+    background-color: #C8102E !important;  /* ISU Red */
+    border-color: #C8102E !important;
+    color: white !important;  /* Back to white arrows */
+}
+
+/* Center the title */
+.fc .fc-toolbar.fc-header-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.fc .fc-toolbar-title {
+    text-align: center;
+}
+
+/* Keep events readable */
+.fc-event {
+    min-height: 50px; /* Ensure enough vertical space for 1-hour classes */
+    display: flex; /* Use flexbox for alignment */
+    align-items: center; /* Center text vertically */
+    justify-content: center; /* Center text horizontally */
+    font-size: 0.85rem; /* Adjust text size for readability */
+    padding: 2px; /* Add some padding */
+}
+
+
+.fc-event-title {
+    padding: 0 2px !important;
+}
+
+.fc-day-today {
+    background-color: white !important; /* Reset to white */
+    font-weight: bold !important; /* Optional: Add emphasis */
+    color: inherit !important; /* Ensure default text color */
+}
+
+
+/* Prevent overlapping events from fully covering each other */
+.fc-timegrid-event-harness {
+    margin-right: 2px !important; /* Add space between events */
+    margin-left: 2px !important; /* Ensure space on the left as well */
+}
+
+/* Make events visually distinct */
+.fc-timegrid-event {
+    border-radius: 6px !important;
+    opacity: 0.95; /* Add slight transparency */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Enhance hover effects for events */
+.fc-timegrid-event:hover {
+    transform: scale(1.02); /* Slight enlargement on hover */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15); /* More prominent shadow */
+}
+
+/* Improve event title readability */
+.fc-event-title {
+    padding: 4px;
+    font-weight: bold;
+}
+
+/* Adjust spacing for stacked events */
+.fc-timegrid-event.fc-event-start {
+    margin-top: 4px !important;
+    margin-bottom: 4px !important;
+}
