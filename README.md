@@ -1,5 +1,6 @@
 # <img src="https://www.cy-plan.com/images/CyPlan_Logo.png" width="40" height="40"/> CyPlan: Simplifying Course Planning for ISU Students
 ### Deployed at https://www.cy-plan.com
+**Note:** Currently, clicking a button may display an error even if the action was successful. Please wait a few seconds, and the action will be completed correctly. We are working on a fix for this issue.
 
 **CyPlan** is your go-to tool for efficiently organizing your course schedule at Iowa State University. Designed with simplicity and effectiveness in mind, CyPlan helps you manage your academic calendar effortlessly.
 
@@ -94,4 +95,4 @@ If you'd like to run CyPlan locally, follow these steps:
   
 
 ## Notes
-Right now, as of 11/17/2024, CyPlan only generates courses for the Spring semester. A term field will be added in the future but not needed right now. 
+Right now, as of 11/17/2024, CyPlan only generates courses for the Spring semester. A term field will be added in the future, but not needed right now. CyPlan is still in progress, expect flaws, but we are currently working on making it better.
