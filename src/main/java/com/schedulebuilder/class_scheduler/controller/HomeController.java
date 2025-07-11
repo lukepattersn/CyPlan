@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.schedulebuilder.class_scheduler.model.Course;
 import com.schedulebuilder.class_scheduler.model.ScheduleBuilder;
 import com.schedulebuilder.class_scheduler.model.Section;
+import com.schedulebuilder.class_scheduler.model.AcademicPeriod;
 import com.schedulebuilder.class_scheduler.service.ApiService;
+import com.schedulebuilder.class_scheduler.service.CourseService;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -22,17 +24,37 @@ public class HomeController {
 
     @Autowired
     private ApiService apiService;
+    
+    @Autowired
+    private CourseService courseService;
 
     @SuppressWarnings("unchecked")
-    private List<Map<Course, Section>> getSchedulesFromSession(HttpSession session) {
-        return (List<Map<Course, Section>>) session.getAttribute("generatedSchedules");
+    private List<Map<Course, List<Section>>> getSchedulesFromSession(HttpSession session) {
+        return (List<Map<Course, List<Section>>>) session.getAttribute("generatedSchedules");
     }
 
     @GetMapping("/")
-    public String home(@RequestParam(required = false, defaultValue = "ACADEMIC_PERIOD-2025Spring") String academicPeriod,
+    public String home(@RequestParam(required = false, defaultValue = "ACADEMIC_PERIOD-2025Fall") String academicPeriod,
                        Model model,
                        HttpSession session) {
         try {
+            // Fetch available academic periods
+            List<AcademicPeriod> academicPeriods = apiService.fetchAcademicPeriods();
+            model.addAttribute("academicPeriods", academicPeriods);
+            model.addAttribute("selectedAcademicPeriod", academicPeriod);
+
+            // Store current academic period in session
+            session.setAttribute("currentAcademicPeriod", academicPeriod);
+
+            // Find the current academic period details for calendar dates
+            AcademicPeriod currentPeriod = academicPeriods.stream()
+                    .filter(period -> period.getId().equals(academicPeriod))
+                    .findFirst()
+                    .orElse(academicPeriods.get(0)); // Default to first period if not found
+            
+            model.addAttribute("currentPeriodStartDate", currentPeriod.getStartDate());
+            model.addAttribute("currentPeriodEndDate", currentPeriod.getEndDate());
+
             // Fetch departments
             String departmentsJson = apiService.fetchDepartments(academicPeriod);
             ObjectMapper objectMapper = new ObjectMapper();
@@ -59,13 +81,14 @@ public class HomeController {
             model.addAttribute("selectedSections", selectedSections);
 
             // Add schedule navigation information
-            List<Map<Course, Section>> schedules = getSchedulesFromSession(session);
+            List<Map<Course, List<Section>>> schedules = getSchedulesFromSession(session);
             Integer currentIndex = (Integer) session.getAttribute("currentScheduleIndex");
 
             model.addAttribute("scheduleCount", schedules != null ? schedules.size() : 0);
             model.addAttribute("currentScheduleIndex", currentIndex != null ? currentIndex : 0);
 
         } catch (Exception e) {
+            model.addAttribute("academicPeriods", Collections.emptyList());
             model.addAttribute("departments", Collections.singletonList("Error fetching departments."));
             model.addAttribute("courses", new ArrayList<>());
             e.printStackTrace();
@@ -77,10 +100,18 @@ public class HomeController {
     @PostMapping("/addCourse")
     public String addCourse(@RequestParam String department,
                             @RequestParam String courseId,
-                            @RequestParam(required = false, defaultValue = "ACADEMIC_PERIOD-2025Spring") String academicPeriodId,
+                            @RequestParam(required = false) String academicPeriodId,
                             RedirectAttributes redirectAttributes,
                             HttpSession session) {
         try {
+            // Use academic period from session if not provided
+            if (academicPeriodId == null || academicPeriodId.isEmpty()) {
+                academicPeriodId = (String) session.getAttribute("currentAcademicPeriod");
+                if (academicPeriodId == null) {
+                    academicPeriodId = "ACADEMIC_PERIOD-2025Fall";
+                }
+            }
+
             // Fetch and parse courses for the given department and courseId
             String coursesJson = apiService.fetchCourses(academicPeriodId, department, courseId);
             ObjectMapper objectMapper = new ObjectMapper();
@@ -88,56 +119,12 @@ public class HomeController {
             JsonNode dataNode = rootNode.path("data");
 
             if (!dataNode.isArray() || dataNode.size() == 0) {
-                // Add error message if no courses found
                 redirectAttributes.addFlashAttribute("errorMessage", "No courses found for the given input.");
                 return "redirect:/";
             }
 
-            List<Course> newCourses = new ArrayList<>();
-            for (JsonNode courseNode : dataNode) {
-                String courseIdParsed = courseNode.path("courseId").asText();
-                String courseName = courseNode.path("courseName").asText();
-                String description = courseNode.path("description").asText();
-
-                // Create the course object
-                Course course = new Course(courseIdParsed, courseName, description);
-
-                // Parse sections for the course
-                JsonNode sectionsNode = courseNode.path("sections");
-                if (sectionsNode.isArray()) {
-                    for (JsonNode sectionNode : sectionsNode) {
-                        String meetingPatterns = sectionNode.path("meetingPatterns").asText("");
-                        String daysOfTheWeek = "Online";
-                        String timeStart = "N/A";
-                        String timeEnd = "N/A";
-
-                        if (!meetingPatterns.isEmpty()) {
-                            String[] meetingParts = meetingPatterns.split("\\|");
-                            if (meetingParts.length >= 2) {
-                                daysOfTheWeek = convertDaysOfWeek(meetingParts[0].trim());
-                                String[] times = meetingParts[1].split("-");
-                                if (times.length >= 2) {
-                                    timeStart = times[0].trim();
-                                    timeEnd = times[1].trim();
-                                }
-                            }
-                        }
-
-                        Section section = new Section(
-                                daysOfTheWeek,
-                                sectionNode.path("openSeats").asInt(),
-                                sectionNode.path("instructor").asText(),
-                                courseIdParsed,
-                                timeStart,
-                                timeEnd,
-                                sectionNode.path("number").asText()
-                        );
-                        course.addSection(section);
-                    }
-                }
-
-                newCourses.add(course);
-            }
+            // Use CourseService to parse courses
+            List<Course> newCourses = courseService.parseCourses(dataNode);
 
             // Retrieve existing courses from session or create a new list
             List<Course> sessionCourses = (List<Course>) session.getAttribute("courses");
@@ -145,13 +132,21 @@ public class HomeController {
                 sessionCourses = new ArrayList<>();
             }
 
-            // Add new courses to the session course list
-            sessionCourses.addAll(newCourses);
+            // Check for duplicates before adding
+            for (Course newCourse : newCourses) {
+                boolean exists = sessionCourses.stream()
+                        .anyMatch(existingCourse -> existingCourse.getCourseId().equals(newCourse.getCourseId()));
+                if (!exists) {
+                    sessionCourses.add(newCourse);
+                }
+            }
+
             session.setAttribute("courses", sessionCourses);
 
             // Clear any previously generated schedules
             session.removeAttribute("generatedSchedules");
             session.removeAttribute("currentScheduleIndex");
+            session.removeAttribute("selectedSections");
 
             redirectAttributes.addFlashAttribute("successMessage", "Course successfully added!");
 
@@ -160,10 +155,30 @@ public class HomeController {
             e.printStackTrace();
         }
 
-        // Redirect to the home page to display the updated list
         return "redirect:/";
     }
 
+    @PostMapping("/changeAcademicPeriod")
+    public String changeAcademicPeriod(@RequestParam String academicPeriod,
+                                       RedirectAttributes redirectAttributes,
+                                       HttpSession session) {
+        try {
+            // Clear all session data when changing academic period
+            session.removeAttribute("courses");
+            session.removeAttribute("generatedSchedules");
+            session.removeAttribute("currentScheduleIndex");
+            session.removeAttribute("selectedSections");
+            
+            // Set new academic period
+            session.setAttribute("currentAcademicPeriod", academicPeriod);
+            
+            redirectAttributes.addFlashAttribute("successMessage", "Academic period changed successfully.");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Error changing academic period.");
+        }
+        
+        return "redirect:/?academicPeriod=" + academicPeriod;
+    }
 
     @GetMapping("/generateSchedules")
     public String generateSchedules(HttpSession session, RedirectAttributes redirectAttributes) {
@@ -173,18 +188,31 @@ public class HomeController {
             return "redirect:/";
         }
 
-        // Limit to 100 schedules for better performance
-        List<Map<Course, Section>> schedules = ScheduleBuilder.generateNonConflictingSchedules(courses, 100);
-        if (schedules.isEmpty()) {
-            redirectAttributes.addFlashAttribute("errorMessage", "No possible schedules found.");
-        } else {
-            session.setAttribute("generatedSchedules", schedules);
-            session.setAttribute("currentScheduleIndex", 0);
+        try {
+            // Generate schedules with improved logic
+            List<Map<Course, List<Section>>> schedules = ScheduleBuilder.generateNonConflictingSchedules(courses, 100);
+            
+            if (schedules.isEmpty()) {
+                redirectAttributes.addFlashAttribute("errorMessage", 
+                    "No valid schedules found. This may be due to conflicting times, insufficient commute time, or missing required recitations/labs.");
+            } else {
+                session.setAttribute("generatedSchedules", schedules);
+                session.setAttribute("currentScheduleIndex", 0);
 
-            Map<Course, Section> firstSchedule = schedules.get(0);
-            session.setAttribute("selectedSections", new ArrayList<>(firstSchedule.values()));
+                // Flatten sections for display (handle multiple sections per course)
+                Map<Course, List<Section>> firstSchedule = schedules.get(0);
+                List<Section> allSections = new ArrayList<>();
+                for (Map.Entry<Course, List<Section>> entry : firstSchedule.entrySet()) {
+                    allSections.addAll(entry.getValue());
+                }
+                session.setAttribute("selectedSections", allSections);
 
-            redirectAttributes.addFlashAttribute("successMessage", "Schedules generated successfully.");
+                redirectAttributes.addFlashAttribute("successMessage", 
+                    "Generated " + schedules.size() + " valid schedule(s) with proper commute time and recitation requirements.");
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Error generating schedules: " + e.getMessage());
+            e.printStackTrace();
         }
 
         return "redirect:/";
@@ -192,7 +220,7 @@ public class HomeController {
 
     @PostMapping("/nextSchedule")
     public String nextSchedule(HttpSession session, RedirectAttributes redirectAttributes) {
-        List<Map<Course, Section>> schedules = getSchedulesFromSession(session);
+        List<Map<Course, List<Section>>> schedules = getSchedulesFromSession(session);
         Integer currentScheduleIndex = (Integer) session.getAttribute("currentScheduleIndex");
 
         if (schedules == null || schedules.isEmpty()) {
@@ -203,8 +231,12 @@ public class HomeController {
         currentScheduleIndex = (currentScheduleIndex + 1) % schedules.size();
         session.setAttribute("currentScheduleIndex", currentScheduleIndex);
 
-        Map<Course, Section> nextSchedule = schedules.get(currentScheduleIndex);
-        session.setAttribute("selectedSections", new ArrayList<>(nextSchedule.values()));
+        Map<Course, List<Section>> nextSchedule = schedules.get(currentScheduleIndex);
+        List<Section> allSections = new ArrayList<>();
+        for (Map.Entry<Course, List<Section>> entry : nextSchedule.entrySet()) {
+            allSections.addAll(entry.getValue());
+        }
+        session.setAttribute("selectedSections", allSections);
 
         redirectAttributes.addFlashAttribute("successMessage", "Switched to the next schedule.");
         return "redirect:/";
@@ -212,7 +244,7 @@ public class HomeController {
 
     @PostMapping("/previousSchedule")
     public String previousSchedule(HttpSession session, RedirectAttributes redirectAttributes) {
-        List<Map<Course, Section>> schedules = getSchedulesFromSession(session);
+        List<Map<Course, List<Section>>> schedules = getSchedulesFromSession(session);
         Integer currentScheduleIndex = (Integer) session.getAttribute("currentScheduleIndex");
 
         if (schedules == null || schedules.isEmpty()) {
@@ -224,8 +256,12 @@ public class HomeController {
         currentScheduleIndex = (currentScheduleIndex - 1 + schedules.size()) % schedules.size();
         session.setAttribute("currentScheduleIndex", currentScheduleIndex);
 
-        Map<Course, Section> previousSchedule = schedules.get(currentScheduleIndex);
-        session.setAttribute("selectedSections", new ArrayList<>(previousSchedule.values()));
+        Map<Course, List<Section>> previousSchedule = schedules.get(currentScheduleIndex);
+        List<Section> allSections = new ArrayList<>();
+        for (Map.Entry<Course, List<Section>> entry : previousSchedule.entrySet()) {
+            allSections.addAll(entry.getValue());
+        }
+        session.setAttribute("selectedSections", allSections);
 
         redirectAttributes.addFlashAttribute("successMessage", "Switched to the previous schedule.");
         return "redirect:/";
@@ -245,7 +281,6 @@ public class HomeController {
                 boolean removed = courses.removeIf(c -> c.getCourseId().equals(fullCourseId));
 
                 if (removed) {
-                    // Update courses
                     session.setAttribute("courses", courses);
 
                     // Clear ALL schedule-related attributes
@@ -263,17 +298,4 @@ public class HomeController {
         }
         return "redirect:/";
     }
-
-    private String convertDaysOfWeek(String daysOfTheWeek) {
-        return daysOfTheWeek
-                .replace("M", "Monday,")
-                .replace("T", "Tuesday,")
-                .replace("W", "Wednesday,")
-                .replace("R", "Thursday,")
-                .replace("F", "Friday,")
-                .replace("S", "Saturday,")
-                .replace("U", "Sunday,")
-                .replaceAll(",+$", ""); // Remove trailing comma
-    }
-
 }

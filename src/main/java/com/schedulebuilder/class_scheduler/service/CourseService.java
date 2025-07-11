@@ -25,7 +25,7 @@ public class CourseService {
         for (JsonNode courseNode : dataNode) {
             // Parse course fields
             String courseId = courseNode.path("courseId").asText();
-            String courseName = courseNode.path("courseName").asText();
+            String courseName = courseNode.path("title").asText(); // Use title instead of courseName
             String description = courseNode.path("description").asText();
             Course course = new Course(courseId, courseName, description);
 
@@ -56,7 +56,7 @@ public class CourseService {
 
         if (meetingPatterns.contains("|")) {
             String[] parts = meetingPatterns.split("\\|");
-            daysOfTheWeek = parts[0].trim(); // Extracts "MWF"
+            daysOfTheWeek = convertDaysOfWeek(parts[0].trim()); // Convert and expand days
             if (parts.length > 1) {
                 String[] times = parts[1].trim().split("-");
                 if (times.length == 2) {
@@ -66,15 +66,41 @@ public class CourseService {
             }
         }
 
+        // Extract instructional format and location
+        String instructionalFormat = sectionNode.path("instructionalFormat").asText("Unknown");
+        String location = sectionNode.path("locations").asText("TBA");
+
         return new Section(
                 daysOfTheWeek,
                 sectionNode.path("openSeats").asInt(),
-                sectionNode.path("instructor").asText(),
+                sectionNode.path("instructors").asText("TBA"),
                 sectionNode.path("courseId").asText(),
                 timeStart,
                 timeEnd,
-                sectionNode.path("number").asText()
+                sectionNode.path("number").asText(),
+                instructionalFormat,
+                location
         );
     }
 
+    /**
+     * Converts day abbreviations to full day names
+     * @param daysOfTheWeek Abbreviated day string (e.g., "MWF")
+     * @return Full day names separated by commas (e.g., "Monday,Wednesday,Friday")
+     */
+    private String convertDaysOfWeek(String daysOfTheWeek) {
+        if (daysOfTheWeek == null || daysOfTheWeek.trim().isEmpty()) {
+            return "Online";
+        }
+        
+        return daysOfTheWeek
+                .replace("M", "Monday,")
+                .replace("T", "Tuesday,")
+                .replace("W", "Wednesday,")
+                .replace("R", "Thursday,")
+                .replace("F", "Friday,")
+                .replace("S", "Saturday,")
+                .replace("U", "Sunday,")
+                .replaceAll(",+$", ""); // Remove trailing comma
+    }
 }

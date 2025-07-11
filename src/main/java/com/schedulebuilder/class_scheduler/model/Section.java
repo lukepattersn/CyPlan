@@ -11,9 +11,12 @@ public class Section {
     private String timeEnd;   // e.g., "2:00 PM"
     private String sectionNumber; // e.g., 1, 2, 3, A, B, C
     private String description; // Course description
+    private String instructionalFormat; // e.g., "Lecture", "Laboratory", "Recitation"
+    private String location; // Room/building information
 
     // Constructor
-    public Section(String daysOfTheWeek, int openSeats, String instructor, String courseId, String timeStart, String timeEnd, String sectionNumber) {
+    public Section(String daysOfTheWeek, int openSeats, String instructor, String courseId, 
+                   String timeStart, String timeEnd, String sectionNumber) {
         this.daysOfTheWeek = daysOfTheWeek;
         this.openSeats = openSeats;
         this.instructor = instructor;
@@ -21,6 +24,35 @@ public class Section {
         this.timeStart = timeStart;
         this.timeEnd = timeEnd;
         this.sectionNumber = sectionNumber;
+    }
+
+    // Full constructor with all fields
+    public Section(String daysOfTheWeek, int openSeats, String instructor, String courseId, 
+                   String timeStart, String timeEnd, String sectionNumber, String instructionalFormat, String location) {
+        this.daysOfTheWeek = daysOfTheWeek;
+        this.openSeats = openSeats;
+        this.instructor = instructor;
+        this.courseId = courseId;
+        this.timeStart = timeStart;
+        this.timeEnd = timeEnd;
+        this.sectionNumber = sectionNumber;
+        this.instructionalFormat = instructionalFormat;
+        this.location = location;
+    }
+
+    // Method to determine if this is a lecture section
+    public boolean isLecture() {
+        return "Lecture".equalsIgnoreCase(instructionalFormat);
+    }
+
+    // Method to determine if this is a recitation section
+    public boolean isRecitation() {
+        return "Recitation".equalsIgnoreCase(instructionalFormat);
+    }
+
+    // Method to determine if this is a lab section
+    public boolean isLab() {
+        return "Laboratory".equalsIgnoreCase(instructionalFormat) || "Lab".equalsIgnoreCase(instructionalFormat);
     }
 
     // Getters and Setters
@@ -88,6 +120,22 @@ public class Section {
         this.description = description;
     }
 
+    public String getInstructionalFormat() {
+        return instructionalFormat;
+    }
+
+    public void setInstructionalFormat(String instructionalFormat) {
+        this.instructionalFormat = instructionalFormat;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
     @Override
     public String toString() {
         return "Section{" +
@@ -99,6 +147,8 @@ public class Section {
                 ", timeEnd='" + timeEnd + '\'' +
                 ", sectionNumber='" + sectionNumber + '\'' +
                 ", description='" + description + '\'' +
+                ", instructionalFormat='" + instructionalFormat + '\'' +
+                ", location='" + location + '\'' +
                 '}';
     }
 

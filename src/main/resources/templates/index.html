@@ -8,6 +8,8 @@
 
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <!-- Custom Styles -->
     <link rel="stylesheet" href="/styles.css">
 
@@ -20,6 +22,10 @@
         var initialData = /*[[${courses}]]*/ [];
         var selectedSections = /*[[${selectedSections}]]*/ [];
         var departments = /*[[${departments}]]*/ [];
+        var academicPeriods = /*[[${academicPeriods}]]*/ [];
+        var selectedAcademicPeriod = /*[[${selectedAcademicPeriod}]]*/ '';
+        var currentPeriodStartDate = /*[[${currentPeriodStartDate}]]*/ '2025-08-25';
+        var currentPeriodEndDate = /*[[${currentPeriodEndDate}]]*/ '2025-12-19';
         var currentScheduleIndex = /*[[${currentScheduleIndex}]]*/ 0;
         var scheduleCount = /*[[${scheduleCount}]]*/ 0;
         /*]]>*/
@@ -55,6 +61,23 @@
             <p>Class planner for ISU students to simplify your schedule planning because workdays make everything difficult.</p>
 
             <div class="mb-5">
+                <!-- Academic Period Selection -->
+                <form @submit.prevent="changeAcademicPeriod" class="needs-validation mb-4" novalidate>
+                    <div class="mb-3">
+                        <label class="form-label">Academic Period</label>
+                        <select v-model="currentAcademicPeriod" 
+                                class="form-select" 
+                                required>
+                            <option value="" disabled>Select Academic Period</option>
+                            <option v-for="period in academicPeriods" :key="period.id" :value="period.id">
+                                {{ period.displayName }}
+                            </option>
+                        </select>
+                        <div class="form-text">Changing the academic period will clear your current course selection.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Change Period</button>
+                </form>
+
                 <!-- Course Addition Form -->
                 <form @submit.prevent="addCourse" id="add-course-form" class="needs-validation" novalidate>
                     <div class="mb-3">
@@ -141,10 +164,18 @@
                                                             <span class="detail-label">Time:</span>
                                                             <span class="detail-value">{{ section.timeStart }} - {{ section.timeEnd }}</span>
                                                         </div>
-                                                        <div class="detail-row">
-                                                            <span class="detail-label">Open Seats:</span>
-                                                            <span class="detail-value">{{ section.openSeats }}</span>
-                                                        </div>
+                                                                                                <div class="detail-row">
+                                            <span class="detail-label">Open Seats:</span>
+                                            <span class="detail-value">{{ section.openSeats }}</span>
+                                        </div>
+                                        <div class="detail-row" v-if="section.instructionalFormat">
+                                            <span class="detail-label">Format:</span>
+                                            <span class="detail-value">{{ section.instructionalFormat }}</span>
+                                        </div>
+                                        <div class="detail-row" v-if="section.location">
+                                            <span class="detail-label">Location:</span>
+                                            <span class="detail-value">{{ section.location }}</span>
+                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -181,6 +212,8 @@
                                     <p class="mb-2"><i class="bi bi-clock"></i> <strong>Time:</strong> {{ section.timeStart }} - {{ section.timeEnd }}</p>
                                     <p class="mb-2"><i class="bi bi-person"></i> <strong>Instructor:</strong> {{ section.instructor }}</p>
                                     <p class="mb-2"><i class="bi bi-hash"></i> <strong>Section:</strong> {{ section.sectionNumber }}</p>
+                                    <p class="mb-2" v-if="section.instructionalFormat"><i class="bi bi-mortarboard"></i> <strong>Format:</strong> {{ section.instructionalFormat }}</p>
+                                    <p class="mb-2" v-if="section.location"><i class="bi bi-geo-alt"></i> <strong>Location:</strong> {{ section.location }}</p>
                                 </div>
                             </div>
                         </div>
@@ -219,6 +252,10 @@
         data() {
             return {
                 departments: departments,
+                academicPeriods: academicPeriods,
+                currentAcademicPeriod: selectedAcademicPeriod,
+                periodStartDate: currentPeriodStartDate,
+                periodEndDate: currentPeriodEndDate,
                 courses: initialData.map(course => ({
                     ...course,
                     showSections: false
@@ -265,6 +302,38 @@
                 console.log('Number of sections:', course.sections.length);
                 console.log('Sections:', course.sections);
                 this.$forceUpdate();
+            },
+            changeAcademicPeriod() {
+                if (!this.currentAcademicPeriod) {
+                    this.showFlashMessage('Please select an academic period', 'danger');
+                    return;
+                }
+
+                // Update the period dates based on selected academic period
+                const selectedPeriod = this.academicPeriods.find(period => period.id === this.currentAcademicPeriod);
+                if (selectedPeriod) {
+                    this.periodStartDate = selectedPeriod.startDate;
+                    this.periodEndDate = selectedPeriod.endDate;
+                }
+
+                const formData = new FormData();
+                formData.append('academicPeriod', this.currentAcademicPeriod);
+
+                fetch('/changeAcademicPeriod', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    window.location.reload(); // Force reload after successful change
+                })
+                .catch(error => {
+                    console.error('Error changing academic period:', error);
+                    this.showFlashMessage('An error occurred while changing the academic period.', 'danger');
+                    setTimeout(() => window.location.reload(), 1000); // Reload after error
+                });
             },
             addCourse() {
                 this.formSubmitted = true;
@@ -361,6 +430,7 @@
                 if (calendarEl) {
                     this.calendar = new Calendar(calendarEl, {
                         initialView: 'timeGridWeek',
+                        initialDate: this.periodStartDate, // Start calendar on academic period start date
                         headerToolbar: {
                             left: 'prev,next today',
                             center: 'title',
@@ -416,8 +486,8 @@
                         daysOfWeek: dayIndices,
                         startTime: this.convertTimeFormat(section.timeStart),
                         endTime: this.convertTimeFormat(section.timeEnd),
-                        startRecur: '2024-08-21', // Adjust to your academic period start date
-                        endRecur: '2024-12-15',   // Adjust to your academic period end date
+                        startRecur: this.periodStartDate, // Use dynamic academic period start date
+                        endRecur: this.periodEndDate,     // Use dynamic academic period end date
                     });
                 });
                 return events;
