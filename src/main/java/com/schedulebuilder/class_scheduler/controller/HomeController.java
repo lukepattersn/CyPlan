@@ -6,6 +6,7 @@ import com.schedulebuilder.class_scheduler.model.Course;
 import com.schedulebuilder.class_scheduler.model.ScheduleBuilder;
 import com.schedulebuilder.class_scheduler.model.Section;
 import com.schedulebuilder.class_scheduler.model.AcademicPeriod;
+import com.schedulebuilder.class_scheduler.model.SchedulePreferences;
 import com.schedulebuilder.class_scheduler.service.ApiService;
 import com.schedulebuilder.class_scheduler.service.CourseService;
 import jakarta.servlet.http.HttpSession;
@@ -18,9 +19,19 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.*;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 @Controller
 public class HomeController {
+    
+    private static final Logger logger = Logger.getLogger(HomeController.class.getName());
+    private static final String DEFAULT_ACADEMIC_PERIOD = "ACADEMIC_PERIOD-2025Fall";
+    private static final String SESSION_COURSES = "courses";
+    private static final String SESSION_GENERATED_SCHEDULES = "generatedSchedules";
+    private static final String SESSION_CURRENT_SCHEDULE_INDEX = "currentScheduleIndex";
+    private static final String SESSION_SELECTED_SECTIONS = "selectedSections";
+    private static final String SESSION_CURRENT_ACADEMIC_PERIOD = "currentAcademicPeriod";
 
     @Autowired
     private ApiService apiService;
@@ -30,11 +41,34 @@ public class HomeController {
 
     @SuppressWarnings("unchecked")
     private List<Map<Course, List<Section>>> getSchedulesFromSession(HttpSession session) {
-        return (List<Map<Course, List<Section>>>) session.getAttribute("generatedSchedules");
+        return (List<Map<Course, List<Section>>>) session.getAttribute(SESSION_GENERATED_SCHEDULES);
+    }
+    
+    @SuppressWarnings("unchecked")
+    private List<Course> getCoursesFromSession(HttpSession session) {
+        List<Course> courses = (List<Course>) session.getAttribute(SESSION_COURSES);
+        return courses != null ? courses : new ArrayList<>();
+    }
+    
+    @SuppressWarnings("unchecked")
+    private List<Section> getSelectedSectionsFromSession(HttpSession session) {
+        List<Section> sections = (List<Section>) session.getAttribute(SESSION_SELECTED_SECTIONS);
+        return sections != null ? sections : new ArrayList<>();
+    }
+    
+    private String getCurrentAcademicPeriod(HttpSession session) {
+        String period = (String) session.getAttribute(SESSION_CURRENT_ACADEMIC_PERIOD);
+        return period != null ? period : DEFAULT_ACADEMIC_PERIOD;
+    }
+    
+    private void clearScheduleSession(HttpSession session) {
+        session.removeAttribute(SESSION_GENERATED_SCHEDULES);
+        session.removeAttribute(SESSION_CURRENT_SCHEDULE_INDEX);
+        session.removeAttribute(SESSION_SELECTED_SECTIONS);
     }
 
     @GetMapping("/")
-    public String home(@RequestParam(required = false, defaultValue = "ACADEMIC_PERIOD-2025Fall") String academicPeriod,
+    public String home(@RequestParam(required = false, defaultValue = DEFAULT_ACADEMIC_PERIOD) String academicPeriod,
                        Model model,
                        HttpSession session) {
         try {
@@ -180,8 +214,9 @@ public class HomeController {
         return "redirect:/?academicPeriod=" + academicPeriod;
     }
 
-    @GetMapping("/generateSchedules")
-    public String generateSchedules(HttpSession session, RedirectAttributes redirectAttributes) {
+    @PostMapping("/generateSchedules")
+    public String generateSchedules(@RequestParam(required = false) String preferences,
+                                  HttpSession session, RedirectAttributes redirectAttributes) {
         List<Course> courses = (List<Course>) session.getAttribute("courses");
         if (courses == null || courses.isEmpty()) {
             redirectAttributes.addFlashAttribute("errorMessage", "No courses added to generate schedules.");
@@ -189,8 +224,36 @@ public class HomeController {
         }
 
         try {
-            // Generate schedules with improved logic
-            List<Map<Course, List<Section>>> schedules = ScheduleBuilder.generateNonConflictingSchedules(courses, 100);
+            // Parse preferences if provided
+            SchedulePreferences schedulePreferences = null;
+            if (preferences != null && !preferences.trim().isEmpty()) {
+                try {
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    JsonNode preferencesNode = objectMapper.readTree(preferences);
+                    
+                    schedulePreferences = new SchedulePreferences();
+                    
+                    // Parse preferred days
+                    JsonNode preferredDaysNode = preferencesNode.path("preferredDays");
+                    if (preferredDaysNode.isArray()) {
+                        List<String> preferredDays = new ArrayList<>();
+                        preferredDaysNode.forEach(day -> preferredDays.add(day.asText()));
+                        schedulePreferences.setPreferredDays(preferredDays);
+                    }
+                    
+                    // Parse other preferences
+                    schedulePreferences.setTimePreference(preferencesNode.path("timePreference").asText(""));
+                    schedulePreferences.setGapPreference(preferencesNode.path("gapPreference").asText("none"));
+                    schedulePreferences.setScheduleStyle(preferencesNode.path("scheduleStyle").asText(""));
+                    
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error parsing preferences, using defaults", e);
+                    schedulePreferences = null;
+                }
+            }
+            
+            // Generate schedules with preferences
+            List<Map<Course, List<Section>>> schedules = ScheduleBuilder.generateNonConflictingSchedules(courses, 100, schedulePreferences);
             
             if (schedules.isEmpty()) {
                 redirectAttributes.addFlashAttribute("errorMessage", 
@@ -207,8 +270,13 @@ public class HomeController {
                 }
                 session.setAttribute("selectedSections", allSections);
 
-                redirectAttributes.addFlashAttribute("successMessage", 
-                    "Generated " + schedules.size() + " valid schedule(s) with proper commute time and recitation requirements.");
+                String message = "Generated " + schedules.size() + " valid schedule(s) with proper commute time and recitation requirements.";
+                if (schedulePreferences != null && !schedulePreferences.hasNoPreferences()) {
+                    message += " Schedules are ordered by preference match - Schedule 1 is the best match for your preferences!";
+                } else {
+                    message += " Schedules are ordered by overall quality score.";
+                }
+                redirectAttributes.addFlashAttribute("successMessage", message);
             }
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage", "Error generating schedules: " + e.getMessage());
@@ -221,7 +289,7 @@ public class HomeController {
     @PostMapping("/nextSchedule")
     public String nextSchedule(HttpSession session, RedirectAttributes redirectAttributes) {
         List<Map<Course, List<Section>>> schedules = getSchedulesFromSession(session);
-        Integer currentScheduleIndex = (Integer) session.getAttribute("currentScheduleIndex");
+        Integer currentScheduleIndex = (Integer) session.getAttribute(SESSION_CURRENT_SCHEDULE_INDEX);
 
         if (schedules == null || schedules.isEmpty()) {
             redirectAttributes.addFlashAttribute("errorMessage", "No schedules available.");
@@ -245,7 +313,7 @@ public class HomeController {
     @PostMapping("/previousSchedule")
     public String previousSchedule(HttpSession session, RedirectAttributes redirectAttributes) {
         List<Map<Course, List<Section>>> schedules = getSchedulesFromSession(session);
-        Integer currentScheduleIndex = (Integer) session.getAttribute("currentScheduleIndex");
+        Integer currentScheduleIndex = (Integer) session.getAttribute(SESSION_CURRENT_SCHEDULE_INDEX);
 
         if (schedules == null || schedules.isEmpty()) {
             redirectAttributes.addFlashAttribute("errorMessage", "No schedules available.");

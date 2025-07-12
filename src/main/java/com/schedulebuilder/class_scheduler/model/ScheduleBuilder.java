@@ -1,12 +1,28 @@
 package com.schedulebuilder.class_scheduler.model;
 
 import java.util.*;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 public class ScheduleBuilder {
+    private static final Logger logger = Logger.getLogger(ScheduleBuilder.class.getName());
     private static final int ABSOLUTE_MAX_SCHEDULES = 100;
-    private static final int MINIMUM_COMMUTE_TIME_MINUTES = 10; // Minimum 10 minutes between classes
+    private static final int MINIMUM_COMMUTE_TIME_MINUTES = 10;
+    private static final int IDEAL_GAP_MIN = 10;
+    private static final int IDEAL_GAP_MAX = 30;
+    private static final int ACCEPTABLE_GAP_MAX = 60;
+    private static final int REASONABLE_START_HOUR_MIN = 9;
+    private static final int REASONABLE_START_HOUR_MAX = 15;
+    private static final String LECTURE_FORMAT = "Lecture";
+    private static final String LABORATORY_FORMAT = "Laboratory";
+    private static final String RECITATION_FORMAT = "Recitation";
+    private static final String ONLINE_TIME = "N/A";
 
     public static List<Map<Course, List<Section>>> generateNonConflictingSchedules(List<Course> courses, int maxSchedules) {
+        return generateNonConflictingSchedules(courses, maxSchedules, null);
+    }
+
+    public static List<Map<Course, List<Section>>> generateNonConflictingSchedules(List<Course> courses, int maxSchedules, SchedulePreferences preferences) {
         maxSchedules = Math.min(maxSchedules, ABSOLUTE_MAX_SCHEDULES);
         
         // Pre-process courses to ensure recitation requirements are met
@@ -17,10 +33,10 @@ public class ScheduleBuilder {
         }
         
         List<Map<Course, List<Section>>> schedules = new ArrayList<>();
-        generateSchedulesRecursive(new HashMap<>(), new ArrayList<>(validCourses), schedules, maxSchedules);
+        generateSchedulesRecursive(new HashMap<>(), new ArrayList<>(validCourses), schedules, maxSchedules, preferences);
         
-        // Sort by score and limit to maxSchedules
-        schedules.sort((s1, s2) -> calculateScheduleScore(s2) - calculateScheduleScore(s1));
+        // Sort by score (including preferences) and limit to maxSchedules
+        schedules.sort((s1, s2) -> calculateScheduleScore(s2, preferences) - calculateScheduleScore(s1, preferences));
         return schedules.subList(0, Math.min(schedules.size(), maxSchedules));
     }
 
@@ -38,9 +54,9 @@ public class ScheduleBuilder {
             for (Section section : course.getSections()) {
                 String format = section.getInstructionalFormat();
                 if (format != null) {
-                    if ("Lecture".equalsIgnoreCase(format)) {
+                    if (LECTURE_FORMAT.equalsIgnoreCase(format)) {
                         hasLecture = true;
-                    } else if ("Laboratory".equalsIgnoreCase(format) || "Recitation".equalsIgnoreCase(format)) {
+                    } else if (LABORATORY_FORMAT.equalsIgnoreCase(format) || RECITATION_FORMAT.equalsIgnoreCase(format)) {
                         hasLabOrRecitation = true;
                     }
                 }
@@ -62,7 +78,7 @@ public class ScheduleBuilder {
                 validCourses.add(course);
             } else {
                 // Course has no recognizable sections - exclude it
-                System.out.println("Excluding course " + course.getCourseId() + " - no valid sections found");
+                logger.log(Level.INFO, "Excluding course " + course.getCourseId() + " - no valid sections found");
             }
         }
         
@@ -74,6 +90,15 @@ public class ScheduleBuilder {
             List<Course> remainingCourses,
             List<Map<Course, List<Section>>> schedules,
             int maxSchedules) {
+        generateSchedulesRecursive(currentSchedule, remainingCourses, schedules, maxSchedules, null);
+    }
+
+    private static void generateSchedulesRecursive(
+            Map<Course, List<Section>> currentSchedule,
+            List<Course> remainingCourses,
+            List<Map<Course, List<Section>>> schedules,
+            int maxSchedules,
+            SchedulePreferences preferences) {
         
         if (schedules.size() >= maxSchedules) {
             return;
@@ -101,7 +126,7 @@ public class ScheduleBuilder {
             
             // Check if this combination conflicts with existing schedule
             if (!hasConflicts(newSchedule)) {
-                generateSchedulesRecursive(newSchedule, nextRemainingCourses, schedules, maxSchedules);
+                generateSchedulesRecursive(newSchedule, nextRemainingCourses, schedules, maxSchedules, preferences);
             }
         }
     }
@@ -201,9 +226,9 @@ public class ScheduleBuilder {
             for (Section section : sections) {
                 String format = section.getInstructionalFormat();
                 if (format != null) {
-                    if ("Lecture".equalsIgnoreCase(format)) {
+                    if (LECTURE_FORMAT.equalsIgnoreCase(format)) {
                         hasLecture = true;
-                    } else if ("Laboratory".equalsIgnoreCase(format) || "Recitation".equalsIgnoreCase(format)) {
+                    } else if (LABORATORY_FORMAT.equalsIgnoreCase(format) || RECITATION_FORMAT.equalsIgnoreCase(format)) {
                         hasLabOrRecitation = true;
                     }
                 }
@@ -299,25 +324,57 @@ public class ScheduleBuilder {
     }
 
     private static int convertTimeToMinutes(String time) {
+        if (time == null || ONLINE_TIME.equals(time)) {
+            return 0;
+        }
+        
         try {
-            String[] parts = time.split(" ");
+            String[] parts = time.trim().split(" ");
+            if (parts.length != 2) {
+                logger.log(Level.WARNING, "Invalid time format: " + time);
+                return 0;
+            }
+            
             String[] timeParts = parts[0].split(":");
+            if (timeParts.length != 2) {
+                logger.log(Level.WARNING, "Invalid time parts: " + parts[0]);
+                return 0;
+            }
+            
             int hours = Integer.parseInt(timeParts[0]);
             int minutes = Integer.parseInt(timeParts[1]);
             
-            if (parts[1].equals("PM") && hours != 12) {
+            // Validate hour and minute ranges
+            if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) {
+                logger.log(Level.WARNING, "Invalid hour/minute values: " + hours + ":" + minutes);
+                return 0;
+            }
+            
+            String period = parts[1].toUpperCase();
+            if ("PM".equals(period) && hours != 12) {
                 hours += 12;
-            } else if (parts[1].equals("AM") && hours == 12) {
+            } else if ("AM".equals(period) && hours == 12) {
                 hours = 0;
+            } else if (!"AM".equals(period) && !"PM".equals(period)) {
+                logger.log(Level.WARNING, "Invalid AM/PM indicator: " + parts[1]);
+                return 0;
             }
             
             return hours * 60 + minutes;
+        } catch (NumberFormatException e) {
+            logger.log(Level.WARNING, "Number parsing error for time: " + time, e);
+            return 0;
         } catch (Exception e) {
-            return 0; // Return 0 for invalid times
+            logger.log(Level.WARNING, "Unexpected error parsing time: " + time, e);
+            return 0;
         }
     }
 
     private static int calculateScheduleScore(Map<Course, List<Section>> schedule) {
+        return calculateScheduleScore(schedule, null);
+    }
+
+    private static int calculateScheduleScore(Map<Course, List<Section>> schedule, SchedulePreferences preferences) {
         int score = 0;
         List<Section> sections = new ArrayList<>();
         
@@ -361,6 +418,11 @@ public class ScheduleBuilder {
         // Bonus for having required recitations/labs
         score += validateRecitationRequirements(schedule) ? 25 : -50;
 
+        // Apply preference-based scoring
+        if (preferences != null && !preferences.hasNoPreferences()) {
+            score += calculatePreferenceScore(schedule, preferences);
+        }
+
         return score;
     }
 
@@ -383,9 +445,9 @@ public class ScheduleBuilder {
             for (Section section : sections) {
                 String format = section.getInstructionalFormat();
                 if (format != null) {
-                    if ("Lecture".equalsIgnoreCase(format)) {
+                    if (LECTURE_FORMAT.equalsIgnoreCase(format)) {
                         hasLecture = true;
-                    } else if ("Laboratory".equalsIgnoreCase(format) || "Recitation".equalsIgnoreCase(format)) {
+                    } else if (LABORATORY_FORMAT.equalsIgnoreCase(format) || RECITATION_FORMAT.equalsIgnoreCase(format)) {
                         hasLabOrRecitation = true;
                     }
                 }
@@ -425,5 +487,143 @@ public class ScheduleBuilder {
         int minutes1 = convertTimeToMinutes(time1);
         int minutes2 = convertTimeToMinutes(time2);
         return Math.abs(minutes2 - minutes1);
+    }
+
+    /**
+     * Calculates score boost based on user preferences
+     */
+    private static int calculatePreferenceScore(Map<Course, List<Section>> schedule, SchedulePreferences preferences) {
+        int preferenceScore = 0;
+        List<Section> sections = new ArrayList<>();
+        
+        for (List<Section> sectionList : schedule.values()) {
+            sections.addAll(sectionList);
+        }
+
+        // Filter out online sections for day/time preference calculations
+        List<Section> inPersonSections = sections.stream()
+                .filter(s -> !s.getTimeStart().equals("N/A"))
+                .collect(java.util.stream.Collectors.toList());
+
+        // Score based on preferred days
+        if (preferences.getPreferredDays() != null && !preferences.getPreferredDays().isEmpty()) {
+            for (Section section : inPersonSections) {
+                String[] sectionDays = section.getDaysOfTheWeek().split(",");
+                for (String day : sectionDays) {
+                    if (preferences.isDayPreferred(day.trim())) {
+                        preferenceScore += 15; // Bonus for preferred day
+                    } else {
+                        preferenceScore -= 5; // Small penalty for non-preferred day
+                    }
+                }
+            }
+        }
+
+        // Score based on time preferences
+        if (!preferences.getTimePreference().isEmpty()) {
+            for (Section section : inPersonSections) {
+                if (matchesTimePreference(section, preferences)) {
+                    preferenceScore += 20; // Bonus for preferred time
+                } else {
+                    preferenceScore -= 10; // Penalty for non-preferred time
+                }
+            }
+        }
+
+        // Score based on gap preferences
+        if (!preferences.getGapPreference().equals("none")) {
+            preferenceScore += scoreGapPreference(inPersonSections, preferences);
+        }
+
+        // Score based on schedule style preference
+        if (!preferences.getScheduleStyle().isEmpty()) {
+            preferenceScore += scoreScheduleStyle(inPersonSections, preferences);
+        }
+
+        return preferenceScore;
+    }
+
+    private static boolean matchesTimePreference(Section section, SchedulePreferences preferences) {
+        int startMinutes = convertTimeToMinutes(section.getTimeStart());
+        int startHour = startMinutes / 60;
+
+        switch (preferences.getTimePreference().toLowerCase()) {
+            case "morning":
+                return startHour >= 8 && startHour < 12;
+            case "afternoon":
+                return startHour >= 12 && startHour < 17;
+            case "evening":
+                return startHour >= 17 && startHour < 21;
+            default:
+                return true;
+        }
+    }
+
+    private static int scoreGapPreference(List<Section> sections, SchedulePreferences preferences) {
+        int gapScore = 0;
+        
+        // Sort sections by day and time
+        sections.sort((s1, s2) -> {
+            int dayCompare = s1.getDaysOfTheWeek().compareTo(s2.getDaysOfTheWeek());
+            if (dayCompare != 0) return dayCompare;
+            return Integer.compare(convertTimeToMinutes(s1.getTimeStart()), convertTimeToMinutes(s2.getTimeStart()));
+        });
+
+        for (int i = 0; i < sections.size() - 1; i++) {
+            Section current = sections.get(i);
+            Section next = sections.get(i + 1);
+            
+            // Only check gaps on the same day
+            if (shareCommonDay(current, next)) {
+                int gap = getTimeDifference(current.getTimeEnd(), next.getTimeStart());
+                int minGap = preferences.getMinGapMinutes();
+                int maxGap = preferences.getMaxGapMinutes();
+                
+                if (gap >= minGap && gap <= maxGap) {
+                    gapScore += 15; // Matches preferred gap
+                } else {
+                    gapScore -= 5; // Doesn't match preferred gap
+                }
+            }
+        }
+        
+        return gapScore;
+    }
+
+    private static int scoreScheduleStyle(List<Section> sections, SchedulePreferences preferences) {
+        Map<String, Integer> classesPerDay = new HashMap<>();
+        for (Section section : sections) {
+            String[] days = section.getDaysOfTheWeek().split(",");
+            for (String day : days) {
+                classesPerDay.merge(day.trim(), 1, Integer::sum);
+            }
+        }
+
+        int daysWithClasses = classesPerDay.size();
+        int maxClassesInDay = classesPerDay.values().stream().mapToInt(i -> i).max().orElse(0);
+
+        if (preferences.isCompactStylePreferred()) {
+            // Prefer fewer days with more classes per day
+            return (5 - daysWithClasses) * 10 + maxClassesInDay * 5;
+        } else if (preferences.isSpreadStylePreferred()) {
+            // Prefer more days with fewer classes per day
+            return daysWithClasses * 10 - maxClassesInDay * 5;
+        }
+        
+        return 0;
+    }
+
+    private static boolean shareCommonDay(Section section1, Section section2) {
+        String[] days1 = section1.getDaysOfTheWeek().split(",");
+        String[] days2 = section2.getDaysOfTheWeek().split(",");
+        
+        for (String day1 : days1) {
+            for (String day2 : days2) {
+                if (day1.trim().equals(day2.trim())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

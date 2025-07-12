@@ -58,7 +58,7 @@
     <div class="container mt-5 content-wrapper">
         <main>
             <h1 class="mb-4">Welcome to CyPlan!</h1>
-            <p>Class planner for ISU students to simplify your schedule planning because workdays make everything difficult.</p>
+            <p>Class planner for ISU students to simplify your schedule planning because workday make everything difficult.</p>
 
             <div class="mb-5">
                 <!-- Academic Period Selection -->
@@ -104,6 +104,94 @@
                     <button type="submit" class="btn btn-primary">Add Course</button>
                 </form>
 
+                <!-- Preferences Section -->
+                <form class="needs-validation mt-4" novalidate>
+                    <div class="mb-3">
+                        <label class="form-label">Schedule Preferences</label>
+                        <button type="button" class="form-select text-start" @click="togglePreferences">
+                            {{ showPreferences ? 'Hide preferences' : 'Show preferences' }}
+                        </button>
+                        <div class="form-text">Configure your scheduling preferences to get better schedule matches. After saving preferences, click "Generate Schedules" to apply them.</div>
+                    </div>
+                    <transition name="slide-fade">
+                        <div v-if="showPreferences">
+                                <div class="row">
+                                    <!-- Preferred Days -->
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Preferred Days</label>
+                                        <div class="form-check-group">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" v-model="preferences.preferredDays" value="Monday" id="prefMonday">
+                                                <label class="form-check-label" for="prefMonday">Mon</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" v-model="preferences.preferredDays" value="Tuesday" id="prefTuesday">
+                                                <label class="form-check-label" for="prefTuesday">Tue</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" v-model="preferences.preferredDays" value="Wednesday" id="prefWednesday">
+                                                <label class="form-check-label" for="prefWednesday">Wed</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" v-model="preferences.preferredDays" value="Thursday" id="prefThursday">
+                                                <label class="form-check-label" for="prefThursday">Thu</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" v-model="preferences.preferredDays" value="Friday" id="prefFriday">
+                                                <label class="form-check-label" for="prefFriday">Fri</label>
+                                            </div>
+                                        </div>
+                                        <div class="form-text">Leave empty for no preference</div>
+                                    </div>
+
+                                    <!-- Time Preference -->
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Preferred Time of Day</label>
+                                        <select v-model="preferences.timePreference" class="form-select">
+                                            <option value="">No preference</option>
+                                            <option value="morning">Morning (8:00 AM - 12:00 PM)</option>
+                                            <option value="afternoon">Afternoon (12:00 PM - 5:00 PM)</option>
+                                            <option value="evening">Evening (5:00 PM - 9:00 PM)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <!-- Gap Between Classes -->
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Preferred Gap Between Classes</label>
+                                        <select v-model="preferences.gapPreference" class="form-select">
+                                            <option value="none">No preference</option>
+                                            <option value="minimal">Minimal (0-15 minutes)</option>
+                                            <option value="short">Short (15-30 minutes)</option>
+                                            <option value="medium">Medium (30-60 minutes)</option>
+                                            <option value="long">Long (60+ minutes)</option>
+                                        </select>
+                                        <div class="form-text">Time between consecutive classes</div>
+                                    </div>
+
+                                    <!-- Compact Schedule -->
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Schedule Style</label>
+                                        <select v-model="preferences.scheduleStyle" class="form-select">
+                                            <option value="">No preference</option>
+                                            <option value="compact">Compact (fewer days, more classes per day)</option>
+                                            <option value="spread">Spread out (more days, fewer classes per day)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i>
+                                    <strong>Note:</strong> These are preferences, not requirements. Generated schedules will be ordered by how well they match your preferences, 
+                                    with Schedule 1 being the best match. If no schedules match your exact preferences, the system will still generate the best available options.
+                                </div>
+
+                                <button @click="savePreferences" class="btn btn-primary">Save Preferences</button>
+                        </div>
+                    </transition>
+                </form>
+
                 <!-- Generate Schedules button -->
                 <div v-if="courses.length > 0" class="text-center mt-4 mb-4">
                     <button @click="generateSchedules" class="btn btn-primary">Generate Schedules</button>
@@ -114,7 +202,11 @@
                     <div v-if="scheduleCount > 0" class="schedule-navigation-compact">
                         <div class="d-flex justify-content-center align-items-center gap-3">
                             <button @click="previousSchedule" class="btn btn-primary">Previous</button>
-                            <span class="schedule-counter">Schedule {{ currentScheduleIndex + 1 }} of {{ scheduleCount }}</span>
+                            <div class="text-center">
+                                <div class="schedule-counter">Schedule {{ currentScheduleIndex + 1 }} of {{ scheduleCount }}</div>
+                                <small class="text-muted" v-if="hasPreferences()">Ordered by preference match</small>
+                                <small class="text-muted" v-else>Ordered by quality score</small>
+                            </div>
                             <button @click="nextSchedule" class="btn btn-primary">Next</button>
                         </div>
                     </div>
@@ -162,7 +254,7 @@
                                                         </div>
                                                         <div class="detail-row">
                                                             <span class="detail-label">Time:</span>
-                                                            <span class="detail-value">{{ section.timeStart }} - {{ section.timeEnd }}</span>
+                                                            <span class="detail-value">{{ section.deliveryMode === 'Online' ? 'ONLINE' : section.timeStart + ' - ' + section.timeEnd }}</span>
                                                         </div>
                                                                                                 <div class="detail-row">
                                             <span class="detail-label">Open Seats:</span>
@@ -175,6 +267,10 @@
                                         <div class="detail-row" v-if="section.location">
                                             <span class="detail-label">Location:</span>
                                             <span class="detail-value">{{ section.location }}</span>
+                                        </div>
+                                        <div class="detail-row" v-if="section.deliveryMode">
+                                            <span class="detail-label">Delivery:</span>
+                                            <span class="detail-value" :class="{'text-primary fw-bold': section.deliveryMode === 'Online'}">{{ section.deliveryMode }}</span>
                                         </div>
                                                     </div>
                                                 </div>
@@ -209,11 +305,12 @@
                                 <h5 class="card-title">{{ section.courseId }}</h5>
                                 <div class="card-text">
                                     <p class="mb-2"><i class="bi bi-calendar-date"></i> <strong>Days:</strong> {{ section.daysOfTheWeek }}</p>
-                                    <p class="mb-2"><i class="bi bi-clock"></i> <strong>Time:</strong> {{ section.timeStart }} - {{ section.timeEnd }}</p>
+                                    <p class="mb-2"><i class="bi bi-clock"></i> <strong>Time:</strong> {{ section.deliveryMode === 'Online' ? 'ONLINE' : section.timeStart + ' - ' + section.timeEnd }}</p>
                                     <p class="mb-2"><i class="bi bi-person"></i> <strong>Instructor:</strong> {{ section.instructor }}</p>
                                     <p class="mb-2"><i class="bi bi-hash"></i> <strong>Section:</strong> {{ section.sectionNumber }}</p>
                                     <p class="mb-2" v-if="section.instructionalFormat"><i class="bi bi-mortarboard"></i> <strong>Format:</strong> {{ section.instructionalFormat }}</p>
                                     <p class="mb-2" v-if="section.location"><i class="bi bi-geo-alt"></i> <strong>Location:</strong> {{ section.location }}</p>
+                                    <p class="mb-2" v-if="section.deliveryMode"><i class="bi bi-globe"></i> <strong>Delivery:</strong> <span :class="{'text-primary fw-bold': section.deliveryMode === 'Online'}">{{ section.deliveryMode }}</span></p>
                                 </div>
                             </div>
                         </div>
@@ -233,6 +330,8 @@
 <footer class="footer mt-auto">
     <div class="container">
         <p class="mb-0">© 2024 CyPlan. All rights reserved.</p>
+        <p class="mb-0">Not directly affiliated with Iowa State University</p>
+        <p class="mb-0">Created by Jeremiah Baccam, Luke Patterson, Jared Cheney</p>
     </div>
 </footer>
 
@@ -273,6 +372,13 @@
                     type: 'info'
                 },
                 formSubmitted: false,
+                showPreferences: false,
+                preferences: {
+                    preferredDays: [],
+                    timePreference: '',
+                    gapPreference: 'none',
+                    scheduleStyle: ''
+                },
             };
         },
         mounted() {
@@ -292,6 +398,7 @@
             console.log('Selected Sections:', this.selectedSections);
             console.log('Current schedule index:', this.currentScheduleIndex);
             console.log('Schedule count:', this.scheduleCount);
+            this.loadPreferences();
             this.initCalendar();
         },
         methods: {
@@ -332,7 +439,6 @@
                 .catch(error => {
                     console.error('Error changing academic period:', error);
                     this.showFlashMessage('An error occurred while changing the academic period.', 'danger');
-                    setTimeout(() => window.location.reload(), 1000); // Reload after error
                 });
             },
             addCourse() {
@@ -365,15 +471,15 @@
                 .catch(error => {
                     console.error('Error adding course:', error);
                     this.showFlashMessage('An error occurred while adding the course.', 'danger');
-                    setTimeout(() => window.location.reload(), 1000); // Reload after error
                 });
             },
             generateSchedules() {
+                const formData = new FormData();
+                formData.append('preferences', JSON.stringify(this.preferences));
+                
                 fetch('/generateSchedules', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
+                    method: 'POST',
+                    body: formData
                 })
                 .then(response => {
                     if (!response.ok) {
@@ -384,7 +490,6 @@
                 .catch(error => {
                     console.error('Error:', error);
                     this.showFlashMessage('Error generating schedules', 'danger');
-                    setTimeout(() => window.location.reload(), 1000); // Reload after error
                 });
             },
             nextSchedule() {
@@ -403,7 +508,6 @@
                 .catch(error => {
                     console.error('Error:', error);
                     this.showFlashMessage('Error switching to next schedule', 'danger');
-                    setTimeout(() => window.location.reload(), 1000); // Reload after error
                 });
             },
             previousSchedule() {
@@ -422,7 +526,6 @@
                 .catch(error => {
                     console.error('Error:', error);
                     this.showFlashMessage('Error switching to previous schedule', 'danger');
-                    setTimeout(() => window.location.reload(), 1000); // Reload after error
                 });
             },
             initCalendar() {
@@ -593,7 +696,6 @@
                 .catch(error => {
                     console.error('Error removing course:', error);
                     this.showFlashMessage('Error removing course', 'danger');
-                    setTimeout(() => window.location.reload(), 1000); // Reload after error
                 });
             },
             createCalendarEvents() {
@@ -638,6 +740,35 @@
                     hash = str.charCodeAt(i) + ((hash << 5) - hash);
                 }
                 return hash;
+            },
+            togglePreferences() {
+                this.showPreferences = !this.showPreferences;
+            },
+            savePreferences() {
+                // Store preferences in localStorage for persistence
+                localStorage.setItem('schedulePreferences', JSON.stringify(this.preferences));
+                
+                // If there are existing schedules, regenerate them with preferences
+                if (this.scheduleCount > 0) {
+                    this.showFlashMessage('Preferences saved! Regenerating schedules and returning to Schedule 1...', 'info');
+                    setTimeout(() => {
+                        this.generateSchedules();
+                    }, 1000);
+                } else {
+                    this.showFlashMessage('Preferences saved! Click "Generate Schedules" to create schedules with your preferences.', 'success');
+                }
+            },
+            loadPreferences() {
+                const saved = localStorage.getItem('schedulePreferences');
+                if (saved) {
+                    this.preferences = { ...this.preferences, ...JSON.parse(saved) };
+                }
+            },
+            hasPreferences() {
+                return (this.preferences.preferredDays && this.preferences.preferredDays.length > 0) ||
+                       (this.preferences.timePreference && this.preferences.timePreference !== '') ||
+                       (this.preferences.gapPreference && this.preferences.gapPreference !== 'none') ||
+                       (this.preferences.scheduleStyle && this.preferences.scheduleStyle !== '');
             }
         },
         watch: {

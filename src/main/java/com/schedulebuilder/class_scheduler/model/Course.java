@@ -11,18 +11,18 @@ public class Course {
 
     // Constructor without sections
     public Course(String courseId, String courseName, String description) {
-        this.courseId = courseId;
-        this.courseName = courseName;
-        this.description = description;
-        this.sections = new ArrayList<>(); // Initialize an empty list of sections
+        this.courseId = validateAndTrim(courseId, "Course ID");
+        this.courseName = validateAndTrim(courseName, "Course Name");
+        this.description = description != null ? description.trim() : "";
+        this.sections = new ArrayList<>();
     }
 
     // Full constructor with sections
     public Course(String courseId, String courseName, String description, List<Section> sections) {
-        this.courseId = courseId;
-        this.courseName = courseName;
-        this.description = description;
-        this.sections = sections;
+        this.courseId = validateAndTrim(courseId, "Course ID");
+        this.courseName = validateAndTrim(courseName, "Course Name");
+        this.description = description != null ? description.trim() : "";
+        this.sections = sections != null ? sections : new ArrayList<>();
     }
 
     // No-argument constructor (optional, for frameworks like Hibernate)
@@ -36,7 +36,7 @@ public class Course {
     }
 
     public void setCourseId(String courseId) {
-        this.courseId = courseId;
+        this.courseId = validateAndTrim(courseId, "Course ID");
     }
 
     public String getCourseName() {
@@ -44,7 +44,7 @@ public class Course {
     }
 
     public void setCourseName(String courseName) {
-        this.courseName = courseName;
+        this.courseName = validateAndTrim(courseName, "Course Name");
     }
 
     public String getDescription() {
@@ -52,7 +52,7 @@ public class Course {
     }
 
     public void setDescription(String description) {
-        this.description = description;
+        this.description = description != null ? description.trim() : "";
     }
 
     public List<Section> getSections() {
@@ -71,6 +71,15 @@ public class Course {
     }
 
     public void addSection(Section section) {
-        this.sections.add(section);
+        if (section != null) {
+            this.sections.add(section);
+        }
+    }
+    
+    private String validateAndTrim(String value, String fieldName) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(fieldName + " cannot be null or empty");
+        }
+        return value.trim();
     }
 }

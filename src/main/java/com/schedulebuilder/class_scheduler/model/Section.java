@@ -13,31 +13,33 @@ public class Section {
     private String description; // Course description
     private String instructionalFormat; // e.g., "Lecture", "Laboratory", "Recitation"
     private String location; // Room/building information
+    private String deliveryMode; // e.g., "Online", "In-Person", "Hybrid"
 
     // Constructor
     public Section(String daysOfTheWeek, int openSeats, String instructor, String courseId, 
                    String timeStart, String timeEnd, String sectionNumber) {
-        this.daysOfTheWeek = daysOfTheWeek;
-        this.openSeats = openSeats;
-        this.instructor = instructor;
-        this.courseId = courseId;
-        this.timeStart = timeStart;
-        this.timeEnd = timeEnd;
-        this.sectionNumber = sectionNumber;
+        this.daysOfTheWeek = validateAndTrim(daysOfTheWeek, "Days of the Week");
+        this.openSeats = Math.max(0, openSeats);
+        this.instructor = validateAndTrim(instructor, "Instructor");
+        this.courseId = validateAndTrim(courseId, "Course ID");
+        this.timeStart = validateAndTrim(timeStart, "Time Start");
+        this.timeEnd = validateAndTrim(timeEnd, "Time End");
+        this.sectionNumber = validateAndTrim(sectionNumber, "Section Number");
     }
 
     // Full constructor with all fields
     public Section(String daysOfTheWeek, int openSeats, String instructor, String courseId, 
-                   String timeStart, String timeEnd, String sectionNumber, String instructionalFormat, String location) {
-        this.daysOfTheWeek = daysOfTheWeek;
-        this.openSeats = openSeats;
-        this.instructor = instructor;
-        this.courseId = courseId;
-        this.timeStart = timeStart;
-        this.timeEnd = timeEnd;
-        this.sectionNumber = sectionNumber;
-        this.instructionalFormat = instructionalFormat;
-        this.location = location;
+                   String timeStart, String timeEnd, String sectionNumber, String instructionalFormat, String location, String deliveryMode) {
+        this.daysOfTheWeek = validateAndTrim(daysOfTheWeek, "Days of the Week");
+        this.openSeats = Math.max(0, openSeats);
+        this.instructor = validateAndTrim(instructor, "Instructor");
+        this.courseId = validateAndTrim(courseId, "Course ID");
+        this.timeStart = validateAndTrim(timeStart, "Time Start");
+        this.timeEnd = validateAndTrim(timeEnd, "Time End");
+        this.sectionNumber = validateAndTrim(sectionNumber, "Section Number");
+        this.instructionalFormat = instructionalFormat != null ? instructionalFormat.trim() : "Unknown";
+        this.location = location != null ? location.trim() : "TBA";
+        this.deliveryMode = deliveryMode != null ? deliveryMode.trim() : "In-Person";
     }
 
     // Method to determine if this is a lecture section
@@ -61,7 +63,7 @@ public class Section {
     }
 
     public void setDaysOfTheWeek(String daysOfTheWeek) {
-        this.daysOfTheWeek = daysOfTheWeek;
+        this.daysOfTheWeek = validateAndTrim(daysOfTheWeek, "Days of the Week");
     }
 
     public int getOpenSeats() {
@@ -69,7 +71,7 @@ public class Section {
     }
 
     public void setOpenSeats(int openSeats) {
-        this.openSeats = openSeats;
+        this.openSeats = Math.max(0, openSeats);
     }
 
     public String getInstructor() {
@@ -77,7 +79,7 @@ public class Section {
     }
 
     public void setInstructor(String instructor) {
-        this.instructor = instructor;
+        this.instructor = validateAndTrim(instructor, "Instructor");
     }
 
     public String getCourseId() {
@@ -85,7 +87,7 @@ public class Section {
     }
 
     public void setCourseId(String courseId) {
-        this.courseId = courseId;
+        this.courseId = validateAndTrim(courseId, "Course ID");
     }
 
     public String getTimeStart() {
@@ -93,7 +95,7 @@ public class Section {
     }
 
     public void setTimeStart(String timeStart) {
-        this.timeStart = timeStart;
+        this.timeStart = validateAndTrim(timeStart, "Time Start");
     }
 
     public String getTimeEnd() {
@@ -101,7 +103,7 @@ public class Section {
     }
 
     public void setTimeEnd(String timeEnd) {
-        this.timeEnd = timeEnd;
+        this.timeEnd = validateAndTrim(timeEnd, "Time End");
     }
 
     public String getSectionNumber() {
@@ -109,7 +111,7 @@ public class Section {
     }
 
     public void setSectionNumber(String sectionNumber) {
-        this.sectionNumber = sectionNumber;
+        this.sectionNumber = validateAndTrim(sectionNumber, "Section Number");
     }
 
     public String getDescription() {
@@ -125,7 +127,7 @@ public class Section {
     }
 
     public void setInstructionalFormat(String instructionalFormat) {
-        this.instructionalFormat = instructionalFormat;
+        this.instructionalFormat = instructionalFormat != null ? instructionalFormat.trim() : "Unknown";
     }
 
     public String getLocation() {
@@ -133,7 +135,19 @@ public class Section {
     }
 
     public void setLocation(String location) {
-        this.location = location;
+        this.location = location != null ? location.trim() : "TBA";
+    }
+
+    public String getDeliveryMode() {
+        return deliveryMode;
+    }
+
+    public void setDeliveryMode(String deliveryMode) {
+        this.deliveryMode = deliveryMode != null ? deliveryMode.trim() : "In-Person";
+    }
+
+    public boolean isOnline() {
+        return "Online".equalsIgnoreCase(deliveryMode);
     }
 
     @Override
@@ -149,10 +163,18 @@ public class Section {
                 ", description='" + description + '\'' +
                 ", instructionalFormat='" + instructionalFormat + '\'' +
                 ", location='" + location + '\'' +
+                ", deliveryMode='" + deliveryMode + '\'' +
                 '}';
     }
 
     public int getIndex(List<Section> sections) {
-        return sections.indexOf(this);
+        return sections != null ? sections.indexOf(this) : -1;
+    }
+    
+    private String validateAndTrim(String value, String fieldName) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(fieldName + " cannot be null or empty");
+        }
+        return value.trim();
     }
 }
