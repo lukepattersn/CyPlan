@@ -51,8 +51,8 @@
     <div v-if="flashMessage.message"
          :class="['alert', `alert-${flashMessage.type}`, 'text-center', 'm-0']"
          role="alert"
-         style="position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 1000; min-width: 300px;">
-        {{ flashMessage.message }}
+         style="position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 1000; min-width: 300px;"
+         v-text="flashMessage.message">
     </div>
 
     <div class="container mt-5 content-wrapper">
