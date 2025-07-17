@@ -132,11 +132,13 @@ public class HomeController {
     }
 
     @PostMapping("/addCourse")
-    public String addCourse(@RequestParam String department,
-                            @RequestParam String courseId,
-                            @RequestParam(required = false) String academicPeriodId,
-                            RedirectAttributes redirectAttributes,
-                            HttpSession session) {
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> addCourse(@RequestParam String department,
+                                                        @RequestParam String courseId,
+                                                        @RequestParam(required = false) String academicPeriodId,
+                                                        HttpSession session) {
+        Map<String, Object> response = new HashMap<>();
+        
         try {
             // Use academic period from session if not provided
             if (academicPeriodId == null || academicPeriodId.isEmpty()) {
@@ -153,8 +155,9 @@ public class HomeController {
             JsonNode dataNode = rootNode.path("data");
 
             if (!dataNode.isArray() || dataNode.size() == 0) {
-                redirectAttributes.addFlashAttribute("errorMessage", "No courses found for the given input.");
-                return "redirect:/";
+                response.put("success", false);
+                response.put("message", "Course does not exist.");
+                return ResponseEntity.ok(response);
             }
 
             // Use CourseService to parse courses
@@ -162,8 +165,9 @@ public class HomeController {
             
             // Check if no valid courses were parsed
             if (newCourses.isEmpty()) {
-                redirectAttributes.addFlashAttribute("errorMessage", "Course does not exist or has no available sections.");
-                return "redirect:/";
+                response.put("success", false);
+                response.put("message", "Course does not exist or has no available sections.");
+                return ResponseEntity.ok(response);
             }
 
             // Retrieve existing courses from session or create a new list
@@ -185,8 +189,9 @@ public class HomeController {
             
             // Check if no new courses were added due to duplicates
             if (addedCount == 0) {
-                redirectAttributes.addFlashAttribute("errorMessage", "Course is already added to your schedule.");
-                return "redirect:/";
+                response.put("success", false);
+                response.put("message", "Course is already added to your schedule.");
+                return ResponseEntity.ok(response);
             }
 
             session.setAttribute("courses", sessionCourses);
@@ -196,14 +201,16 @@ public class HomeController {
             session.removeAttribute("currentScheduleIndex");
             session.removeAttribute("selectedSections");
 
-            redirectAttributes.addFlashAttribute("successMessage", "Course successfully added!");
+            response.put("success", true);
+            response.put("message", "Course successfully added!");
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("errorMessage", "Error fetching courses. Please try again later.");
+            response.put("success", false);
+            response.put("message", "Error fetching courses. Please try again later.");
             e.printStackTrace();
+            return ResponseEntity.ok(response);
         }
-
-        return "redirect:/";
     }
 
     @PostMapping("/changeAcademicPeriod")

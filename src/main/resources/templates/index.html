@@ -466,7 +466,22 @@
                     if (!response.ok) {
                         throw new Error('Network response was not ok');
                     }
-                    window.location.reload(); // Force reload after successful addition
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        this.showFlashMessage(data.message, 'success');
+                        // Reset form
+                        this.newCourse.department = '';
+                        this.newCourse.courseId = '';
+                        this.formSubmitted = false;
+                        // Reload page to update course list
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        this.showFlashMessage(data.message, 'danger');
+                    }
                 })
                 .catch(error => {
                     console.error('Error adding course:', error);
