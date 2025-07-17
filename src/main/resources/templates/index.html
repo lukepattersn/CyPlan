@@ -426,7 +426,7 @@
                 const formData = new FormData();
                 formData.append('academicPeriod', this.currentAcademicPeriod);
 
-                fetch(`${window.location.origin}/changeAcademicPeriod`, {
+                fetch('/changeAcademicPeriod', {
                     method: 'POST',
                     body: formData
                 })
@@ -458,7 +458,7 @@
                 formData.append('department', this.newCourse.department);
                 formData.append('courseId', this.newCourse.courseId);
 
-                fetch(`${window.location.origin}/addCourse`, {
+                fetch('/addCourse', {
                     method: 'POST',
                     body: formData
                 })
@@ -477,7 +477,7 @@
                 const formData = new FormData();
                 formData.append('preferences', JSON.stringify(this.preferences));
                 
-                fetch(`${window.location.origin}/generateSchedules`, {
+                fetch('/generateSchedules', {
                     method: 'POST',
                     body: formData
                 })
@@ -493,7 +493,7 @@
                 });
             },
             nextSchedule() {
-                fetch(`${window.location.origin}/nextSchedule`, {
+                fetch('/nextSchedule', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -511,7 +511,7 @@
                 });
             },
             previousSchedule() {
-                fetch(`${window.location.origin}/previousSchedule`, {
+                fetch('/previousSchedule', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -681,7 +681,7 @@
             removeCourse(course) {
                 const [department, number] = course.courseId.split(' ');
 
-                fetch(`${window.location.origin}/removeCourse?department=${department}&courseId=${number}`, {
+                fetch(`/removeCourse?department=${department}&courseId=${number}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
