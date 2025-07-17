@@ -159,6 +159,12 @@ public class HomeController {
 
             // Use CourseService to parse courses
             List<Course> newCourses = courseService.parseCourses(dataNode);
+            
+            // Check if no valid courses were parsed
+            if (newCourses.isEmpty()) {
+                redirectAttributes.addFlashAttribute("errorMessage", "Course does not exist or has no available sections.");
+                return "redirect:/";
+            }
 
             // Retrieve existing courses from session or create a new list
             List<Course> sessionCourses = (List<Course>) session.getAttribute("courses");
@@ -167,12 +173,20 @@ public class HomeController {
             }
 
             // Check for duplicates before adding
+            int addedCount = 0;
             for (Course newCourse : newCourses) {
                 boolean exists = sessionCourses.stream()
                         .anyMatch(existingCourse -> existingCourse.getCourseId().equals(newCourse.getCourseId()));
                 if (!exists) {
                     sessionCourses.add(newCourse);
+                    addedCount++;
                 }
+            }
+            
+            // Check if no new courses were added due to duplicates
+            if (addedCount == 0) {
+                redirectAttributes.addFlashAttribute("errorMessage", "Course is already added to your schedule.");
+                return "redirect:/";
             }
 
             session.setAttribute("courses", sessionCourses);
