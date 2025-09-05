@@ -407,10 +407,9 @@
             window.addEventListener('resize', () => {
                 if (this.calendar) {
                     setTimeout(() => {
-                        this.calendar.updateSize();
-                        // Update aspect ratio based on screen size
                         const isMobile = window.innerWidth <= 768;
-                        this.calendar.setOption('aspectRatio', isMobile ? 0.08 : 0.12);
+                        this.calendar.setOption('dayHeaderFormat', isMobile ? { weekday: 'short' } : { weekday: 'long' });
+                        this.calendar.updateSize();
                     }, 100);
                 }
             });
@@ -583,7 +582,7 @@
                             omitZeroMinute: true,
                             meridiem: 'short'
                         },
-                        dayHeaderFormat: { weekday: 'long' },
+                        dayHeaderFormat: isMobile ? { weekday: 'short' } : { weekday: 'long' },
                         eventContent: function (arg) {
                             return {
                                 html: `
