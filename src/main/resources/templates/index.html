@@ -58,7 +58,7 @@
     <div class="container mt-5 content-wrapper">
         <main>
             <h1 class="mb-4">Welcome to CyPlan!</h1>
-            <p>Class planner for ISU students to simplify your schedule planning because workday make everything difficult.</p>
+            <p>Class planner for ISU students to simplify your schedule planning because workday makes everything difficult.</p>
 
             <div class="mb-5">
                 <!-- Academic Period Selection -->
@@ -213,9 +213,11 @@
                 </transition>
 
                 <!-- Calendar section -->
-                <div class="mt-5">
+                <div class="calendar-section mt-5">
                     <h2 class="mb-4">Course Schedule</h2>
-                    <div id='calendar'></div>
+                    <div class="calendar-container">
+                        <div id='calendar'></div>
+                    </div>
                 </div>
 
                 <!-- List of Added Courses -->
@@ -400,6 +402,18 @@
             console.log('Schedule count:', this.scheduleCount);
             this.loadPreferences();
             this.initCalendar();
+            
+            // Handle window resize for mobile optimization
+            window.addEventListener('resize', () => {
+                if (this.calendar) {
+                    setTimeout(() => {
+                        this.calendar.updateSize();
+                        // Update aspect ratio based on screen size
+                        const isMobile = window.innerWidth <= 768;
+                        this.calendar.setOption('aspectRatio', isMobile ? 0.08 : 0.12);
+                    }, 100);
+                }
+            });
         },
         methods: {
             toggleSections(course) {
@@ -546,49 +560,131 @@
             initCalendar() {
                 const calendarEl = document.getElementById('calendar');
                 if (calendarEl) {
+                    const isMobile = window.innerWidth <= 768;
+                    const timeRange = this.calculateTimeRange();
+                    
                     this.calendar = new Calendar(calendarEl, {
                         initialView: 'timeGridWeek',
-                        initialDate: this.periodStartDate, // Start calendar on academic period start date
-                        headerToolbar: {
-                            left: 'prev,next today',
-                            center: 'title',
-                            right: ''
-                        },
-                        firstDay: 1, // Monday
-                        hiddenDays: [0, 6], // Hide Sunday and Saturday
+                        initialDate: '2025-08-18',
+                        headerToolbar: false,
+                        firstDay: 1,
+                        hiddenDays: [0, 6],
                         allDaySlot: false,
-                        slotMinTime: '06:00:00',
-                        slotMaxTime: '22:00:00',
+                        slotMinTime: timeRange.min,
+                        slotMaxTime: timeRange.max,
+                        height: 'auto',
+                        expandRows: true,
                         events: this.generateEvents(this.selectedSections),
-                        eventOverlap: false, // Prevent events from overlapping visually
-                        eventOrder: "start,-duration,title", // Order events by start time
-                        slotEventOverlap: true, // Stack events within the same time slot
+                        slotDuration: '00:30:00',
+                        slotLabelInterval: '01:00:00',
+                        slotLabelFormat: {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            omitZeroMinute: true,
+                            meridiem: 'short'
+                        },
                         eventContent: function (arg) {
                             return {
                                 html: `
-                        <div class="fc-event-main-frame">
-                            <div class="fc-event-title-container">
-                                <div class="fc-event-title">${arg.event.title}</div>
-                            </div>
-                            <div class="fc-event-time">
-                                ${arg.timeText}
-                            </div>
-                            ${arg.event.extendedProps.instructor ?
-                                    `<div class="fc-event-instructor">
-                                Prof: ${arg.event.extendedProps.instructor}
-                            </div>` : ''}
-                        </div>
-                    `
+                                <div class="fc-event-main-frame" style="padding: 4px 6px; height: 100%; display: flex; align-items: center;">
+                                    <div class="fc-event-title" style="font-weight: 600; font-size: 13px; line-height: 1.2; color: white !important; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">${arg.event.title}</div>
+                                </div>
+                                `
                             };
                         }
                     });
                     this.calendar.render();
+                    
+                    // Ensure calendar takes full width
+                    setTimeout(() => {
+                        this.calendar.updateSize();
+                    }, 100);
                 }
             },
             updateCalendar() {
                 if (this.calendar) {
                     this.calendar.removeAllEvents();
                     this.calendar.addEventSource(this.generateEvents(this.selectedSections));
+                    
+                    // Update time range when events change
+                    const timeRange = this.calculateTimeRange();
+                    this.calendar.setOption('slotMinTime', timeRange.min);
+                    this.calendar.setOption('slotMaxTime', timeRange.max);
+                }
+            },
+            calculateTimeRange() {
+                // Always show 6am-9pm for consistent calendar size
+                return { min: '06:00:00', max: '21:00:00' };
+            },
+            timeToMinutes(timeStr) {
+                if (!timeStr || timeStr === 'N/A') return 0;
+                
+                const [time, modifier] = timeStr.split(' ');
+                let [hours, minutes] = time.split(':').map(Number);
+                
+                if (modifier === 'PM' && hours !== 12) {
+                    hours += 12;
+                }
+                if (modifier === 'AM' && hours === 12) {
+                    hours = 0;
+                }
+                
+                return hours * 60 + minutes;
+            },
+            minutesToTimeString(minutes) {
+                const hours = Math.floor(minutes / 60);
+                const mins = minutes % 60;
+                return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
+            },
+            calculateScheduleHours(timeRange) {
+                // Calculate the number of hours in the schedule
+                const startHour = parseInt(timeRange.min.split(':')[0]);
+                const endHour = parseInt(timeRange.max.split(':')[0]);
+                return endHour - startHour;
+            },
+            calculateAdaptiveHeight(scheduleHours, isMobile) {
+                // Special handling for empty schedule (no classes)
+                if (!this.selectedSections || this.selectedSections.length === 0) {
+                    return isMobile ? 500 : 600; // Fixed reasonable height when no classes
+                }
+                
+                // Base height that adapts to schedule length
+                const baseSlotHeight = isMobile ? 60 : 80;
+                const headerHeight = 50;
+                const minHeight = 400;
+                
+                // More space for shorter schedules, less crowding
+                let multiplier;
+                if (scheduleHours <= 3) {
+                    multiplier = 1.8; // Much more space for very short schedules
+                } else if (scheduleHours <= 5) {
+                    multiplier = 1.4; // More space for short schedules
+                } else if (scheduleHours <= 7) {
+                    multiplier = 1.1; // Slightly more space for medium schedules
+                } else {
+                    multiplier = 0.9; // Standard space for long schedules
+                }
+                
+                const calculatedHeight = (scheduleHours * baseSlotHeight * multiplier) + headerHeight;
+                return Math.max(minHeight, calculatedHeight);
+            },
+            calculateSlotHeight(scheduleHours, isMobile) {
+                // Special handling for empty schedule (no classes)
+                if (!this.selectedSections || this.selectedSections.length === 0) {
+                    return isMobile ? 45 : 55; // Standard slot height when no classes
+                }
+                
+                // Minimum height per hour slot to prevent cramming
+                const baseHeight = isMobile ? 50 : 70;
+                
+                if (scheduleHours <= 3) {
+                    return baseHeight * 1.6; // Much taller slots for short schedules
+                } else if (scheduleHours <= 5) {
+                    return baseHeight * 1.3; // Taller slots for medium schedules
+                } else if (scheduleHours <= 7) {
+                    return baseHeight * 1.1; // Slightly taller for longer schedules
+                } else {
+                    return baseHeight; // Standard height for very long schedules
                 }
             },
             generateEvents(sections) {
@@ -600,12 +696,20 @@
                         return;
                     }
                     events.push({
-                        title: `${section.courseId} - Section ${section.sectionNumber}`,
+                        title: section.courseId,
                         daysOfWeek: dayIndices,
-                        startTime: this.convertTimeFormat(section.timeStart),
-                        endTime: this.convertTimeFormat(section.timeEnd),
-                        startRecur: this.periodStartDate, // Use dynamic academic period start date
-                        endRecur: this.periodEndDate,     // Use dynamic academic period end date
+                        startTime: this.convertTimeFormat(section.timeStart, false), // Round down start time
+                        endTime: this.convertTimeFormat(section.timeEnd, true), // Round up end time
+                        backgroundColor: '#D0021B',
+                        borderColor: '#B5001E',
+                        textColor: '#ffffff',
+                        extendedProps: {
+                            instructor: section.instructor,
+                            sectionNumber: section.sectionNumber,
+                            courseId: section.courseId,
+                            originalTimeStart: section.timeStart,
+                            originalTimeEnd: section.timeEnd
+                        }
                     });
                 });
                 return events;
@@ -628,25 +732,36 @@
                 }
                 return days;
             },
-            convertTimeFormat(timeStr) {
+            convertTimeFormat(timeStr, roundUp = false) {
                 // Handle cases where timeStr might be empty or invalid
                 if (!timeStr || timeStr === 'N/A') return null;
 
                 // Convert time from "h:mm A" format to "HH:mm:ss" format
                 const [time, modifier] = timeStr.split(' ');
-                let [hours, minutes] = time.split(':');
+                let [hours, minutes] = time.split(':').map(Number);
 
-                if (modifier === 'PM' && hours !== '12') {
-                    hours = parseInt(hours, 10) + 12;
+
+                if (modifier === 'PM' && hours !== 12) {
+                    hours += 12;
                 }
-                if (modifier === 'AM' && hours === '12') {
-                    hours = '00';
+                if (modifier === 'AM' && hours === 12) {
+                    hours = 0;
                 }
 
-                // Pad hours and minutes with leading zeros if necessary
+                // Round to flat hours
+                if (roundUp) {
+                    // Round up end times (if there are any minutes, go to next hour)
+                    if (minutes > 0) {
+                        hours += 1;
+                    }
+                } else {
+                    // Round down start times (ignore minutes)
+                    // hours stays the same
+                }
+
+                // Pad hours with leading zeros if necessary
                 hours = String(hours).padStart(2, '0');
-                minutes = String(minutes).padStart(2, '0');
-                return `${hours}:${minutes}:00`;
+                return `${hours}:00:00`;
             },
             showFlashMessage(message, type = 'info') {
                 this.flashMessage.message = message;
@@ -731,23 +846,27 @@
                     });
                 });
             },
-            getRandomColor(seed) {
-                // Use pastel or lighter colors to ensure text visibility
+            getCourseColor(courseId) {
+                // Professional, modern colors - not too bright, good contrast
                 const colors = [
-                    '#FFB6C1', // light pink
-                    '#98FB98', // pale green
-                    '#87CEFA', // light sky blue
-                    '#DDA0DD', // plum
-                    '#F0E68C', // khaki
-                    '#E6E6FA', // lavender
-                    '#B8E2EF', // light blue
-                    '#FFE4B5', // moccasin
-                    '#98FF98', // mint
-                    '#FFA07A'  // light salmon
+                    '#4A90E2', // Professional Blue
+                    '#F5A623', // Warm Orange
+                    '#7ED321', // Fresh Green
+                    '#9013FE', // Modern Purple
+                    '#D0021B', // Professional Red
+                    '#50E3C2', // Teal
+                    '#BD10E0', // Magenta
+                    '#B8E986', // Light Green
+                    '#417505', // Forest Green
+                    '#9B9B9B'  // Professional Grey
                 ];
 
-                const index = Math.abs(this.hashCode(seed)) % colors.length;
+                const index = Math.abs(this.hashCode(courseId)) % colors.length;
                 return colors[index];
+            },
+            getRandomColor(seed) {
+                // Fallback method - redirects to getCourseColor
+                return this.getCourseColor(seed);
             },
             hashCode(str) {
                 let hash = 0;
