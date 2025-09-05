@@ -698,8 +698,8 @@
                     events.push({
                         title: section.courseId,
                         daysOfWeek: dayIndices,
-                        startTime: this.convertTimeFormat(section.timeStart, false), // Round down start time
-                        endTime: this.convertTimeFormat(section.timeEnd, true), // Round up end time
+                        startTime: this.convertTimeFormatNoRounding(section.timeStart), // Use exact times
+                        endTime: this.convertTimeFormatNoRounding(section.timeEnd), // Use exact times
                         backgroundColor: '#D0021B',
                         borderColor: '#B5001E',
                         textColor: '#ffffff',
@@ -762,6 +762,26 @@
                 // Pad hours with leading zeros if necessary
                 hours = String(hours).padStart(2, '0');
                 return `${hours}:00:00`;
+            },
+            convertTimeFormatNoRounding(timeStr) {
+                // Handle cases where timeStr might be empty or invalid
+                if (!timeStr || timeStr === 'N/A') return null;
+
+                // Convert time from "h:mm A" format to "HH:mm:ss" format with exact times
+                const [time, modifier] = timeStr.split(' ');
+                let [hours, minutes] = time.split(':').map(Number);
+
+                if (modifier === 'PM' && hours !== 12) {
+                    hours += 12;
+                }
+                if (modifier === 'AM' && hours === 12) {
+                    hours = 0;
+                }
+
+                // No rounding - use exact times
+                hours = String(hours).padStart(2, '0');
+                minutes = String(minutes).padStart(2, '0');
+                return `${hours}:${minutes}:00`;
             },
             showFlashMessage(message, type = 'info') {
                 this.flashMessage.message = message;
