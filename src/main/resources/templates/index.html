@@ -55,7 +55,7 @@
          v-text="flashMessage.message">
     </div>
 
-    <div class="container mt-5 content-wrapper">
+    <div class="container-fluid px-3 mt-5 content-wrapper">
         <main>
             <h1 class="mb-4">Welcome to CyPlan!</h1>
             <p>Class planner for ISU students to simplify your schedule planning because workday makes everything difficult.</p>
@@ -961,6 +961,24 @@
 
     .fc-event-title {
         padding: 0 2px;
+    }
+
+    /* Mobile optimization - remove gaps on sides */
+    @media (max-width: 768px) {
+        body {
+            overflow-x: hidden;
+        }
+        
+        .container-fluid {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+        
+        #calendar {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
     }
 </style>
 
