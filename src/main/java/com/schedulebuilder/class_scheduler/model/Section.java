@@ -14,6 +14,8 @@ public class Section {
     private String instructionalFormat; // e.g., "Lecture", "Laboratory", "Recitation"
     private String location; // Room/building information
     private String deliveryMode; // e.g., "Online", "In-Person", "Hybrid"
+    private String credits; // Course credits (e.g., "3", "4.5")
+    private SectionType sectionType; // Type of section (IN_PERSON, ONLINE, TBD)
 
     // Constructor
     public Section(String daysOfTheWeek, int openSeats, String instructor, String courseId, 
@@ -29,7 +31,7 @@ public class Section {
 
     // Full constructor with all fields
     public Section(String daysOfTheWeek, int openSeats, String instructor, String courseId, 
-                   String timeStart, String timeEnd, String sectionNumber, String instructionalFormat, String location, String deliveryMode) {
+                   String timeStart, String timeEnd, String sectionNumber, String instructionalFormat, String location, String deliveryMode, String credits) {
         this.daysOfTheWeek = validateAndTrim(daysOfTheWeek, "Days of the Week");
         this.openSeats = Math.max(0, openSeats);
         this.instructor = validateAndTrim(instructor, "Instructor");
@@ -40,6 +42,7 @@ public class Section {
         this.instructionalFormat = instructionalFormat != null ? instructionalFormat.trim() : "Unknown";
         this.location = location != null ? location.trim() : "TBA";
         this.deliveryMode = deliveryMode != null ? deliveryMode.trim() : "In-Person";
+        this.credits = credits != null ? credits.trim() : "0";
     }
 
     // Method to determine if this is a lecture section
@@ -150,6 +153,33 @@ public class Section {
         return "Online".equalsIgnoreCase(deliveryMode);
     }
 
+    public String getCredits() {
+        return credits;
+    }
+
+    public void setCredits(String credits) {
+        this.credits = credits != null ? credits.trim() : "0";
+    }
+
+    public SectionType getSectionType() {
+        return sectionType;
+    }
+
+    public void setSectionType(SectionType sectionType) {
+        this.sectionType = sectionType;
+    }
+
+    /**
+     * Determines if this section can be scheduled in the calendar.
+     * Only IN_PERSON sections with valid times and days are schedulable.
+     */
+    public boolean isSchedulable() {
+        return sectionType == SectionType.IN_PERSON &&
+               daysOfTheWeek != null && !daysOfTheWeek.equals("TBD") &&
+               timeStart != null && !timeStart.equals("TBD") &&
+               timeEnd != null && !timeEnd.equals("TBD");
+    }
+
     @Override
     public String toString() {
         return "Section{" +
@@ -164,6 +194,7 @@ public class Section {
                 ", instructionalFormat='" + instructionalFormat + '\'' +
                 ", location='" + location + '\'' +
                 ", deliveryMode='" + deliveryMode + '\'' +
+                ", credits='" + credits + '\'' +
                 '}';
     }
 
@@ -173,7 +204,8 @@ public class Section {
     
     private String validateAndTrim(String value, String fieldName) {
         if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException(fieldName + " cannot be null or empty");
+            // Allow "TBD" as a default for missing time/day information
+            return "TBD";
         }
         return value.trim();
     }

@@ -16,28 +16,104 @@ public class ScheduleBuilder {
     private static final String LECTURE_FORMAT = "Lecture";
     private static final String LABORATORY_FORMAT = "Laboratory";
     private static final String RECITATION_FORMAT = "Recitation";
+    private static final String DISCUSSION_FORMAT = "Discussion";
     private static final String ONLINE_TIME = "N/A";
 
     public static List<Map<Course, List<Section>>> generateNonConflictingSchedules(List<Course> courses, int maxSchedules) {
-        return generateNonConflictingSchedules(courses, maxSchedules, null);
+        return generateNonConflictingSchedules(courses, maxSchedules, null, true);
     }
 
     public static List<Map<Course, List<Section>>> generateNonConflictingSchedules(List<Course> courses, int maxSchedules, SchedulePreferences preferences) {
+        return generateNonConflictingSchedules(courses, maxSchedules, preferences, true);
+    }
+
+    public static List<Map<Course, List<Section>>> generateNonConflictingSchedules(List<Course> courses, int maxSchedules, SchedulePreferences preferences, boolean uniqueSchedulesOnly) {
         maxSchedules = Math.min(maxSchedules, ABSOLUTE_MAX_SCHEDULES);
-        
+
         // Pre-process courses to ensure recitation requirements are met
         List<Course> validCourses = validateAndFilterCourses(courses);
-        
+
         if (validCourses.isEmpty()) {
             return new ArrayList<>(); // Return empty if no valid courses
         }
-        
+
+        // Adjust generation multiplier based on whether we're deduplicating
+        // If deduplicating, generate 3x to have options after removing duplicates
+        // If not deduplicating, just generate the requested amount
+        int generationTarget = uniqueSchedulesOnly ? maxSchedules * 3 : maxSchedules;
+
         List<Map<Course, List<Section>>> schedules = new ArrayList<>();
-        generateSchedulesRecursive(new HashMap<>(), new ArrayList<>(validCourses), schedules, maxSchedules, preferences);
-        
+        generateSchedulesRecursive(new HashMap<>(), new ArrayList<>(validCourses), schedules, generationTarget, preferences);
+
+        // Conditionally deduplicate schedules that differ only by location/instructor
+        List<Map<Course, List<Section>>> finalSchedules = schedules;
+        if (uniqueSchedulesOnly) {
+            finalSchedules = deduplicateSchedules(schedules);
+            logger.log(Level.INFO, "Deduplication: " + schedules.size() + " schedules reduced to " + finalSchedules.size() + " unique schedules");
+        } else {
+            logger.log(Level.INFO, "Deduplication disabled: showing all " + schedules.size() + " schedule variations");
+        }
+
         // Sort by score (including preferences) and limit to maxSchedules
-        schedules.sort((s1, s2) -> calculateScheduleScore(s2, preferences) - calculateScheduleScore(s1, preferences));
-        return schedules.subList(0, Math.min(schedules.size(), maxSchedules));
+        finalSchedules.sort((s1, s2) -> calculateScheduleScore(s2, preferences) - calculateScheduleScore(s1, preferences));
+        return finalSchedules.subList(0, Math.min(finalSchedules.size(), maxSchedules));
+    }
+
+    /**
+     * Removes duplicate schedules that differ only by location or instructor
+     * Keeps the first occurrence (highest scoring) of each unique day/time pattern
+     */
+    private static List<Map<Course, List<Section>>> deduplicateSchedules(List<Map<Course, List<Section>>> schedules) {
+        Map<String, Map<Course, List<Section>>> uniqueSchedulesMap = new LinkedHashMap<>();
+
+        for (Map<Course, List<Section>> schedule : schedules) {
+            String scheduleSignature = generateScheduleSignature(schedule);
+
+            // Only keep the first schedule with this signature
+            if (!uniqueSchedulesMap.containsKey(scheduleSignature)) {
+                uniqueSchedulesMap.put(scheduleSignature, schedule);
+            }
+        }
+
+        return new ArrayList<>(uniqueSchedulesMap.values());
+    }
+
+    /**
+     * Generate a unique signature for a schedule based on courseId, days, times, and format
+     * Excludes section number, location, and instructor to identify duplicates
+     */
+    private static String generateScheduleSignature(Map<Course, List<Section>> schedule) {
+        StringBuilder signature = new StringBuilder();
+
+        // Sort courses by courseId for consistent signatures
+        List<Course> sortedCourses = new ArrayList<>(schedule.keySet());
+        sortedCourses.sort(Comparator.comparing(Course::getCourseId));
+
+        for (Course course : sortedCourses) {
+            signature.append(course.getCourseId()).append(":");
+
+            List<Section> sections = schedule.get(course);
+            // Sort sections by time/day for consistency (NOT by section number)
+            sections.sort((s1, s2) -> {
+                int dayCompare = s1.getDaysOfTheWeek().compareTo(s2.getDaysOfTheWeek());
+                if (dayCompare != 0) return dayCompare;
+                int timeCompare = s1.getTimeStart().compareTo(s2.getTimeStart());
+                if (timeCompare != 0) return timeCompare;
+                return s1.getTimeEnd().compareTo(s2.getTimeEnd());
+            });
+
+            for (Section section : sections) {
+                // Include format, days, and times - but NOT section number, location, or instructor
+                String format = section.getInstructionalFormat();
+                signature.append(format != null ? format : "").append("-");
+                signature.append(section.getDaysOfTheWeek()).append("-");
+                signature.append(section.getTimeStart()).append("-");
+                signature.append(section.getTimeEnd()).append("|");
+            }
+            signature.append(";");
+        }
+
+        return signature.toString();
     }
 
     /**
@@ -47,50 +123,29 @@ public class ScheduleBuilder {
         List<Course> validCourses = new ArrayList<>();
         
         for (Course course : courses) {
-            boolean hasLecture = false;
-            boolean hasLabOrRecitation = false;
+            boolean hasPrimary = false;
+            boolean hasSecondary = false;
             
             // Check what types of sections are available
             for (Section section : course.getSections()) {
-                String format = section.getInstructionalFormat();
-                if (format != null) {
-                    if (LECTURE_FORMAT.equalsIgnoreCase(format)) {
-                        hasLecture = true;
-                    } else if (LABORATORY_FORMAT.equalsIgnoreCase(format) || RECITATION_FORMAT.equalsIgnoreCase(format)) {
-                        hasLabOrRecitation = true;
-                    }
+                if (isSecondarySection(section)) {
+                    hasSecondary = true;
+                } else {
+                    hasPrimary = true;
                 }
             }
             
-            // If course has both lectures AND labs/recitations, it requires both
-            // If course only has lectures, that's fine
-            // If course only has labs/recitations (unusual), that's fine too
-            // Only exclude courses that have lectures but are missing required labs/recitations
-            
-            if (hasLecture && hasLabOrRecitation) {
-                // Course requires both - this is good, include it
+            // Only include courses that have at least one section type
+            if (hasPrimary || hasSecondary) {
                 validCourses.add(course);
-            } else if (hasLecture && !hasLabOrRecitation) {
-                // Course only has lectures - this is a lecture-only course, include it
-                validCourses.add(course);
-            } else if (!hasLecture && hasLabOrRecitation) {
-                // Course only has labs/recitations (unusual but possible), include it
-                validCourses.add(course);
+                logger.log(Level.INFO, "Course " + course.getCourseId() + 
+                          " included with primary=" + hasPrimary + ", secondary=" + hasSecondary);
             } else {
-                // Course has no recognizable sections - exclude it
                 logger.log(Level.INFO, "Excluding course " + course.getCourseId() + " - no valid sections found");
             }
         }
         
         return validCourses;
-    }
-
-    private static void generateSchedulesRecursive(
-            Map<Course, List<Section>> currentSchedule,
-            List<Course> remainingCourses,
-            List<Map<Course, List<Section>>> schedules,
-            int maxSchedules) {
-        generateSchedulesRecursive(currentSchedule, remainingCourses, schedules, maxSchedules, null);
     }
 
     private static void generateSchedulesRecursive(
@@ -107,7 +162,10 @@ public class ScheduleBuilder {
         if (remainingCourses.isEmpty()) {
             // Validate that the schedule meets all requirements before adding
             if (isValidCompleteSchedule(currentSchedule)) {
+                logger.log(Level.INFO, "Adding valid schedule with " + currentSchedule.size() + " courses");
                 schedules.add(new HashMap<>(currentSchedule));
+            } else {
+                logger.log(Level.WARNING, "Schedule failed validation - not adding to results");
             }
             return;
         }
@@ -117,13 +175,14 @@ public class ScheduleBuilder {
 
         // Generate all valid section combinations for courses with recitation requirements
         List<List<Section>> sectionCombinations = generateSectionCombinations(course);
-        
+        logger.log(Level.INFO, "Course " + course.getCourseId() + " has " + sectionCombinations.size() + " section combinations");
+
         for (List<Section> sectionCombo : sectionCombinations) {
             Map<Course, List<Section>> newSchedule = new HashMap<>(currentSchedule);
-            
+
             // Add the section combination for this course
             newSchedule.put(course, new ArrayList<>(sectionCombo));
-            
+
             // Check if this combination conflicts with existing schedule
             if (!hasConflicts(newSchedule)) {
                 generateSchedulesRecursive(newSchedule, nextRemainingCourses, schedules, maxSchedules, preferences);
@@ -133,70 +192,67 @@ public class ScheduleBuilder {
 
     /**
      * Generates valid section combinations for a course (handles courses with multiple required sections)
+     * Improved to handle Discussion sections and use section numbering patterns
      */
     private static List<List<Section>> generateSectionCombinations(Course course) {
         List<List<Section>> combinations = new ArrayList<>();
         
-        List<Section> lectures = new ArrayList<>();
-        List<Section> labs = new ArrayList<>();
-        List<Section> recitations = new ArrayList<>();
-        List<Section> others = new ArrayList<>();
+        List<Section> primarySections = new ArrayList<>();  // Main lectures (numeric sections: 1, 2, 3, etc.)
+        List<Section> secondarySections = new ArrayList<>(); // Recitations/Discussions/Labs (letter sections: A, B, C, etc.)
         
-        // Group sections by instructional format
+        // Categorize sections based on multiple criteria
         for (Section section : course.getSections()) {
-            String format = section.getInstructionalFormat();
-            if (format != null) {
-                if ("Lecture".equalsIgnoreCase(format)) {
-                    lectures.add(section);
-                } else if ("Laboratory".equalsIgnoreCase(format)) {
-                    labs.add(section);
-                } else if ("Recitation".equalsIgnoreCase(format)) {
-                    recitations.add(section);
-                } else {
-                    others.add(section);
-                }
+            if (isSecondarySection(section)) {
+                secondarySections.add(section);
             } else {
-                // If no instructional format specified, treat as lecture
-                lectures.add(section);
+                primarySections.add(section);
             }
         }
         
-        // Determine what combinations are required
-        boolean hasLectures = !lectures.isEmpty();
-        boolean hasLabs = !labs.isEmpty();
-        boolean hasRecitations = !recitations.isEmpty();
+        logger.log(Level.FINE, "Course " + course.getCourseId() + 
+                   " has " + primarySections.size() + " primary sections and " + 
+                   secondarySections.size() + " secondary sections");
         
-        if (hasLectures && (hasLabs || hasRecitations)) {
-            // Course has lectures AND labs/recitations - MUST include both
-            for (Section lecture : lectures) {
-                // Try all lab combinations
-                for (Section lab : labs) {
-                    List<Section> combo = Arrays.asList(lecture, lab);
-                    combinations.add(combo);
-                }
-                // Try all recitation combinations  
-                for (Section recitation : recitations) {
-                    List<Section> combo = Arrays.asList(lecture, recitation);
-                    combinations.add(combo);
+        // Generate combinations based on what's available
+        if (!primarySections.isEmpty() && !secondarySections.isEmpty()) {
+            // Course has both primary and secondary sections - need one of each
+            for (Section primary : primarySections) {
+                for (Section secondary : secondarySections) {
+                    // Check if sections are compatible with course context for lab-lecture pairing
+                    if (areSectionsCompatible(primary, secondary, course)) {
+                        combinations.add(Arrays.asList(primary, secondary));
+                    }
                 }
             }
-        } else if (hasLectures) {
-            // Course only has lectures - each lecture is a valid combination
-            for (Section lecture : lectures) {
-                combinations.add(Arrays.asList(lecture));
+            
+            // If no compatible combinations found, allow any pairing
+            if (combinations.isEmpty()) {
+                logger.log(Level.WARNING, "No compatible section pairs found for " + course.getCourseId() + 
+                           ", allowing any combination");
+                for (Section primary : primarySections) {
+                    for (Section secondary : secondarySections) {
+                        combinations.add(Arrays.asList(primary, secondary));
+                    }
+                }
             }
-        } else if (hasLabs || hasRecitations) {
-            // Course only has labs/recitations (unusual case)
-            for (Section lab : labs) {
-                combinations.add(Arrays.asList(lab));
+        } else if (!primarySections.isEmpty()) {
+            // Only primary sections (lecture-only course)
+            for (Section primary : primarySections) {
+                combinations.add(Arrays.asList(primary));
             }
-            for (Section recitation : recitations) {
-                combinations.add(Arrays.asList(recitation));
+        } else if (!secondarySections.isEmpty()) {
+            // Only secondary sections (unusual, but possible for some courses)
+            for (Section secondary : secondarySections) {
+                combinations.add(Arrays.asList(secondary));
             }
-        } else if (!others.isEmpty()) {
-            // Course has other types of sections
-            for (Section other : others) {
-                combinations.add(Arrays.asList(other));
+        }
+        
+        // If no combinations were created, add all sections individually as fallback
+        if (combinations.isEmpty()) {
+            logger.log(Level.WARNING, "No valid combinations for " + course.getCourseId() + 
+                       ", adding sections individually");
+            for (Section section : course.getSections()) {
+                combinations.add(Arrays.asList(section));
             }
         }
         
@@ -204,50 +260,189 @@ public class ScheduleBuilder {
     }
 
     /**
-     * Validates that a complete schedule meets all requirements
+     * Helper method to determine if a section is secondary (recitation/discussion/lab)
+     * Updated to handle more section types including Discussion
      */
-    private static boolean isValidCompleteSchedule(Map<Course, List<Section>> schedule) {
-        // Group sections by course ID to validate requirements
-        Map<String, List<Section>> courseToSections = new HashMap<>();
+    private static boolean isSecondarySection(Section section) {
+        String sectionNumber = section.getSectionNumber();
+        String format = section.getInstructionalFormat();
         
-        for (List<Section> sections : schedule.values()) {
-            for (Section section : sections) {
-                courseToSections.computeIfAbsent(section.getCourseId(), k -> new ArrayList<>()).add(section);
+        // Method 1: Check instructional format
+        if (format != null) {
+            String formatLower = format.toLowerCase();
+            // Check for various secondary section types
+            if (formatLower.contains("recitation") || 
+                formatLower.contains("discussion") || 
+                formatLower.contains("laboratory") || 
+                formatLower.contains("lab") ||
+                formatLower.contains("quiz") ||
+                formatLower.contains("workshop") ||
+                formatLower.contains("tutorial") ||
+                formatLower.contains("studio") ||
+                formatLower.contains("seminar")) {
+                return true;
+            }
+            
+            // Explicitly marked as lecture means it's primary
+            if (format.equalsIgnoreCase("Lecture")) {
+                return false;
             }
         }
         
-        for (Map.Entry<String, List<Section>> entry : courseToSections.entrySet()) {
-            List<Section> sections = entry.getValue();
+        // Method 2: Check section number pattern
+        // Letter sections (A, B, C, etc.) are typically secondary
+        if (sectionNumber != null && !sectionNumber.isEmpty()) {
+            char firstChar = sectionNumber.charAt(0);
+            if (Character.isLetter(firstChar)) {
+                return true;
+            }
+        }
+        
+        // Method 3: Check for "Arranged" format which often indicates discussion/lab
+        if (format != null && format.toLowerCase().contains("arranged")) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Check if a primary section and secondary section are compatible
+     * Implements specific lab-lecture pairing logic:
+     * - For LAB sections: match with lectures only when instructors match (if multiple lab instructors)
+     * - For other sections (discussions, studios, etc.): independent sections
+     */
+    private static boolean areSectionsCompatible(Section primary, Section secondary, Course course) {
+        String primaryFormat = primary.getInstructionalFormat();
+        String secondaryFormat = secondary.getInstructionalFormat();
+        
+        // Check if this is specifically a lab-lecture pairing (only "Lab" format gets special treatment)
+        boolean isLectureLab = (primaryFormat != null && primaryFormat.equalsIgnoreCase("Lecture")) &&
+                               (secondaryFormat != null && secondaryFormat.equalsIgnoreCase("Lab"));
+        
+        if (isLectureLab) {
+            return handleLabLecturePairing(primary, secondary, course);
+        }
+        
+        // For all other section types (discussions, studios, research, experiential, combination, etc.), use flexible pairing
+        return handleOtherSectionPairing(primary, secondary);
+    }
+    
+    /**
+     * Handle lab-lecture pairing with specific instructor matching logic
+     */
+    private static boolean handleLabLecturePairing(Section lecture, Section lab, Course course) {
+        
+        // Get all lab sections and their unique instructors
+        Set<String> labInstructors = new HashSet<>();
+        for (Section section : course.getSections()) {
+            if (isLabSection(section) && section.getInstructor() != null && !section.getInstructor().isEmpty()) {
+                labInstructors.add(section.getInstructor());
+            }
+        }
+        
+        // If multiple lab instructors, require instructor match
+        if (labInstructors.size() > 1) {
+            return lecture.getInstructor() != null && lecture.getInstructor().equals(lab.getInstructor());
+        }
+        
+        // If single lab instructor (or no instructor info), allow pairing with any lecture
+        return true;
+    }
+    
+    /**
+     * Handle pairing for non-lab sections (discussions, studios, recitations, etc.)
+     * These are treated as independent sections with flexible pairing
+     */
+    private static boolean handleOtherSectionPairing(Section primary, Section secondary) {
+        // If sections share the same instructor, they're likely linked
+        if (primary.getInstructor() != null && primary.getInstructor().equals(secondary.getInstructor())) {
+            return true;
+        }
+        
+        // Check if section numbers follow a pattern (e.g., Lecture 1 -> Recitation 1A, 1B, 1C)
+        String primaryNum = primary.getSectionNumber();
+        String secondaryNum = secondary.getSectionNumber();
+        
+        if (primaryNum != null && secondaryNum != null) {
+            // If secondary starts with primary number (e.g., "1" and "1A")
+            if (secondaryNum.startsWith(primaryNum)) {
+                return true;
+            }
             
-            // Count different types of sections for this course
-            boolean hasLecture = false;
-            boolean hasLabOrRecitation = false;
-            
-            for (Section section : sections) {
-                String format = section.getInstructionalFormat();
-                if (format != null) {
-                    if (LECTURE_FORMAT.equalsIgnoreCase(format)) {
-                        hasLecture = true;
-                    } else if (LABORATORY_FORMAT.equalsIgnoreCase(format) || RECITATION_FORMAT.equalsIgnoreCase(format)) {
-                        hasLabOrRecitation = true;
+            // If they're in the same numeric range (for courses that don't follow strict patterns)
+            try {
+                // Extract numeric part of primary section
+                String primaryNumeric = primaryNum.replaceAll("[^0-9]", "");
+                if (!primaryNumeric.isEmpty()) {
+                    int primaryInt = Integer.parseInt(primaryNumeric);
+                    
+                    // Check if secondary section number contains the same base number
+                    String secondaryNumeric = secondaryNum.replaceAll("[^0-9]", "");
+                    if (!secondaryNumeric.isEmpty()) {
+                        int secondaryInt = Integer.parseInt(secondaryNumeric);
+                        // They're compatible if in the same "group" (e.g., 1-3 goes with A-C)
+                        if (primaryInt == secondaryInt) {
+                            return true;
+                        }
                     }
+                }
+            } catch (NumberFormatException e) {
+                // Ignore parsing errors, continue with other checks
+            }
+        }
+        
+        // For non-lab sections, allow flexible pairing
+        return true;
+    }
+    
+    /**
+     * Check if a section is specifically a lab section (only exact "Lab" format)
+     */
+    private static boolean isLabSection(Section section) {
+        String format = section.getInstructionalFormat();
+        return format != null && format.equalsIgnoreCase("Lab");
+    }
+    
+
+    /**
+     * Validates that a complete schedule meets all requirements
+     */
+    private static boolean isValidCompleteSchedule(Map<Course, List<Section>> schedule) {
+        for (Map.Entry<Course, List<Section>> entry : schedule.entrySet()) {
+            Course course = entry.getKey();
+            List<Section> scheduledSections = entry.getValue();
+            
+            // Re-categorize the course's sections to check requirements
+            boolean courseHasPrimary = false;
+            boolean courseHasSecondary = false;
+            
+            for (Section section : course.getSections()) {
+                if (isSecondarySection(section)) {
+                    courseHasSecondary = true;
+                } else {
+                    courseHasPrimary = true;
                 }
             }
             
-            // For this validation, we need to check if the course SHOULD have both types
-            // We need to look at the original course to see what section types are available
-            // Since we don't have access to the original course here, we'll trust that
-            // the combination generation logic has done its job correctly
-            
-            // The main rule: if we have multiple sections for a course, and one is a lecture,
-            // then we should also have a lab/recitation (since single-section courses
-            // would only have one section in the schedule)
-            if (sections.size() > 1) {
-                if (hasLecture && !hasLabOrRecitation) {
-                    return false; // Has lecture but missing required lab/recitation
+            // If course requires both types, check that both are scheduled
+            if (courseHasPrimary && courseHasSecondary) {
+                boolean scheduledPrimary = false;
+                boolean scheduledSecondary = false;
+                
+                for (Section section : scheduledSections) {
+                    if (isSecondarySection(section)) {
+                        scheduledSecondary = true;
+                    } else {
+                        scheduledPrimary = true;
+                    }
                 }
-                if (!hasLecture && hasLabOrRecitation) {
-                    return false; // Has lab/recitation but missing required lecture
+                
+                if (!scheduledPrimary || !scheduledSecondary) {
+                    logger.log(Level.FINE, "Course " + course.getCourseId() + 
+                              " missing required section type. Has primary: " + scheduledPrimary + 
+                              ", Has secondary: " + scheduledSecondary);
+                    return false;
                 }
             }
         }
@@ -273,8 +468,10 @@ public class ScheduleBuilder {
     }
 
     private static boolean sectionsConflict(Section section1, Section section2) {
-        // Skip conflict check if either section is online
-        if (section1.getTimeStart().equals("N/A") || section2.getTimeStart().equals("N/A")) {
+        // Skip conflict check if either section is online, N/A, or has TBD time
+        if (section1.getTimeStart().equals("N/A") || section2.getTimeStart().equals("N/A") ||
+            section1.getTimeStart().equals("TBD") || section2.getTimeStart().equals("TBD") ||
+            section1.getTimeStart().equals("Online") || section2.getTimeStart().equals("Online")) {
             return false;
         }
 
@@ -324,7 +521,7 @@ public class ScheduleBuilder {
     }
 
     private static int convertTimeToMinutes(String time) {
-        if (time == null || ONLINE_TIME.equals(time)) {
+        if (time == null || ONLINE_TIME.equals(time) || "TBD".equals(time) || "Online".equals(time)) {
             return 0;
         }
         
@@ -415,7 +612,7 @@ public class ScheduleBuilder {
             }
         }
 
-        // Bonus for having required recitations/labs
+        // Bonus for having required recitations/labs/discussions
         score += validateRecitationRequirements(schedule) ? 25 : -50;
 
         // Apply preference-based scoring
@@ -430,59 +627,60 @@ public class ScheduleBuilder {
      * Validates that all recitation requirements are met in the schedule
      */
     private static boolean validateRecitationRequirements(Map<Course, List<Section>> schedule) {
-        Map<String, List<Section>> courseToSections = new HashMap<>();
-        
-        for (List<Section> sectionList : schedule.values()) {
-            for (Section section : sectionList) {
-                courseToSections.computeIfAbsent(section.getCourseId(), k -> new ArrayList<>()).add(section);
-            }
-        }
-        
-        for (List<Section> sections : courseToSections.values()) {
-            boolean hasLecture = false;
-            boolean hasLabOrRecitation = false;
+        for (Map.Entry<Course, List<Section>> entry : schedule.entrySet()) {
+            Course course = entry.getKey();
+            List<Section> scheduledSections = entry.getValue();
             
-            for (Section section : sections) {
-                String format = section.getInstructionalFormat();
-                if (format != null) {
-                    if (LECTURE_FORMAT.equalsIgnoreCase(format)) {
-                        hasLecture = true;
-                    } else if (LABORATORY_FORMAT.equalsIgnoreCase(format) || RECITATION_FORMAT.equalsIgnoreCase(format)) {
-                        hasLabOrRecitation = true;
+            boolean courseHasPrimary = false;
+            boolean courseHasSecondary = false;
+            
+            // Check what the course offers
+            for (Section section : course.getSections()) {
+                if (isSecondarySection(section)) {
+                    courseHasSecondary = true;
+                } else {
+                    courseHasPrimary = true;
+                }
+            }
+            
+            // If course has both types, verify both are scheduled
+            if (courseHasPrimary && courseHasSecondary) {
+                boolean scheduledPrimary = false;
+                boolean scheduledSecondary = false;
+                
+                for (Section section : scheduledSections) {
+                    if (isSecondarySection(section)) {
+                        scheduledSecondary = true;
+                    } else {
+                        scheduledPrimary = true;
                     }
                 }
-            }
-            
-            // If we have multiple sections for a course, ensure they're properly paired
-            if (sections.size() > 1) {
-                // Multi-section course should have both lecture and lab/recitation
-                if (hasLecture && !hasLabOrRecitation) {
-                    return false; // Missing required lab/recitation
-                }
-                if (!hasLecture && hasLabOrRecitation) {
-                    return false; // Missing required lecture
+                
+                if (!scheduledPrimary || !scheduledSecondary) {
+                    return false;
                 }
             }
-            // Single-section courses are always valid (either lecture-only or lab-only courses)
         }
         
         return true;
     }
 
     private static boolean isReasonableStartTime(String time) {
-        if (time.equals("N/A")) return false;
+        if (time.equals("N/A") || time.equals("TBD") || time.equals("Online")) return false;
         
         try {
             int minutes = convertTimeToMinutes(time);
             int hour = minutes / 60;
-            return (hour >= 9 && hour <= 15); // 9 AM to 3 PM
+            return (hour >= REASONABLE_START_HOUR_MIN && hour <= REASONABLE_START_HOUR_MAX);
         } catch (Exception e) {
             return false;
         }
     }
 
     private static int getTimeDifference(String time1, String time2) {
-        if (time1.equals("N/A") || time2.equals("N/A")) return 0;
+        if (time1.equals("N/A") || time2.equals("N/A") ||
+            time1.equals("TBD") || time2.equals("TBD") ||
+            time1.equals("Online") || time2.equals("Online")) return 0;
         
         int minutes1 = convertTimeToMinutes(time1);
         int minutes2 = convertTimeToMinutes(time2);
@@ -593,14 +791,32 @@ public class ScheduleBuilder {
     private static int scoreScheduleStyle(List<Section> sections, SchedulePreferences preferences) {
         Map<String, Integer> classesPerDay = new HashMap<>();
         for (Section section : sections) {
-            String[] days = section.getDaysOfTheWeek().split(",");
+            String daysStr = section.getDaysOfTheWeek();
+            
+            // Skip online classes and classes without specific days from schedule style scoring
+            if (daysStr == null || daysStr.equals("N/A") || daysStr.equals("Online") || daysStr.trim().isEmpty()) {
+                continue;
+            }
+            
+            String[] days = daysStr.split(",");
             for (String day : days) {
-                classesPerDay.merge(day.trim(), 1, Integer::sum);
+                String dayTrimmed = day.trim();
+                // Only count actual weekdays, not online/special values
+                if (dayTrimmed.equals("Monday") || dayTrimmed.equals("Tuesday") || 
+                    dayTrimmed.equals("Wednesday") || dayTrimmed.equals("Thursday") || 
+                    dayTrimmed.equals("Friday")) {
+                    classesPerDay.merge(dayTrimmed, 1, Integer::sum);
+                }
             }
         }
 
         int daysWithClasses = classesPerDay.size();
         int maxClassesInDay = classesPerDay.values().stream().mapToInt(i -> i).max().orElse(0);
+
+        // If no in-person classes, don't apply style preference
+        if (daysWithClasses == 0) {
+            return 0;
+        }
 
         if (preferences.isCompactStylePreferred()) {
             // Prefer fewer days with more classes per day

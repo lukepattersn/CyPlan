@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyPlan</title>
+    <link rel="icon" href="/images/CyPlan_Logo.png">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/isu-brand.css">
+    <link rel="stylesheet" href="/css/styles.css">
+
+    <!-- Server data injection -->
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        window.serverData = {
+            courses: /*[[${courses}]]*/ [],
+            selectedSections: /*[[${selectedSections}]]*/ [],
+            departments: /*[[${departments}]]*/ [],
+            academicPeriods: /*[[${academicPeriods}]]*/ [],
+            selectedAcademicPeriod: /*[[${selectedAcademicPeriod}]]*/ '',
+            currentScheduleIndex: /*[[${currentScheduleIndex}]]*/ 0,
+            scheduleCount: /*[[${scheduleCount}]]*/ 0
+        };
+        /*]]>*/
+    </script>
+</head>
+
+<body class="d-flex flex-column min-vh-100">
+
+    <div id="app" v-cloak>
+        <!-- Enhanced Header with Better Contrast -->
+        <header class="isu-header">
+            <div class="container-fluid">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="logo-container">
+                        <img src="/images/CyPlan_Logo.png" alt="CyPlan" class="logo-image">
+                        <div class="cy-plan-wordmark">
+                            <span class="cy">Cy</span><span class="plan">Plan</span>
+                        </div>
+                        <span class="mobile-title">Schedule Planner</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <button @click="viewSavedSchedules" class="saved-schedules-btn">
+                            <div class="btn-icon">
+                                <i class="bi bi-bookmarks-fill"></i>
+                                <span v-if="savedSchedules.length > 0" class="notification-badge">{{ savedSchedules.length }}</span>
+                            </div>
+                            <div class="btn-content">
+                                <span class="btn-label">Saved Schedules</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Flash Message -->
+        <div v-if="flashMessage.message"
+             :class="['alert', `alert-${flashMessage.type}`, 'text-center', 'm-0']"
+             role="alert"
+             style="position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 1000; min-width: 300px;"
+             v-text="flashMessage.message">
+        </div>
+
+        <!-- Mobile/Desktop Responsive Layout -->
+        <div class="d-flex flex-column flex-lg-row" style="min-height: 100vh;">
+            <!-- Sidebar - Hidden on mobile, shown on desktop -->
+            <div class="sidebar isu-sidebar d-none d-lg-block" :class="{ collapsed: sidebarCollapsed }" style="width: 380px; min-height: 100vh; padding: 15px; overflow-y: auto; position: relative;">
+
+                <!-- Sidebar Toggle Button - Desktop Only -->
+                <button class="sidebar-toggle" @click="toggleSidebar" :class="{ collapsed: sidebarCollapsed }">
+                    <i :class="sidebarCollapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-left'"></i>
+                </button>
+
+                <!-- Academic Period Selection -->
+                <div class="mb-4">
+                    <div class="mb-3">
+                        <label class="form-label">Academic Period</label>
+                        <select v-model="currentAcademicPeriod" @change="changeAcademicPeriod" class="form-select form-select-sm" required>
+                            <option value="" disabled>Select Academic Period</option>
+                            <option v-for="period in academicPeriods" :key="period.id" :value="period.id">
+                                {{ period.displayName }}
+                            </option>
+                        </select>
+                        <div class="form-text small">Changing period will clear courses.</div>
+                    </div>
+                </div>
+
+                <!-- Course Addition Form -->
+                <form @submit.prevent="addCourse" class="needs-validation mb-4" novalidate>
+                    <div class="mb-3">
+                        <label class="form-label">Department</label>
+                        <div class="dropdown-container">
+                            <input
+                                type="text"
+                                v-model="newCourse.courseSubject"
+                                @input="filterDepartments"
+                                @focus="showDepartmentDropdown = true"
+                                @blur="hideDepartmentDropdown"
+                                @keydown="handleDepartmentKeyDown"
+                                class="form-control form-control-sm"
+                                :class="{'is-invalid': formSubmitted && !newCourse.courseSubject}"
+                                placeholder="Type to search departments..."
+                                autocomplete="off"
+                                required>
+                            <div class="dropdown-content" v-show="showDepartmentDropdown && filteredDepartments.length > 0">
+                                <div 
+                                    v-for="dept in filteredDepartments" 
+                                    :key="dept"
+                                    class="dropdown-option"
+                                    @mousedown="selectDepartment(dept)">
+                                    {{ dept }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="invalid-feedback">Please select a department.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Course ID</label>
+                        <input type="text"
+                               id="course-id-input-desktop"
+                               class="form-control form-control-sm"
+                               :class="{'is-invalid': formSubmitted && !newCourse.courseNumber}"
+                               v-model="newCourse.courseNumber"
+                               placeholder="e.g., 2280"
+                               required>
+                        <div class="invalid-feedback">Please enter a valid course ID.</div>
+                    </div>
+                    <button type="submit" class="btn btn-isu-secondary btn-sm w-100">Add Course</button>
+                </form>
+
+                <!-- Schedule Preferences - More Visible -->
+                <div class="mb-4">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="mb-0" style="color: var(--isu-cardinal);">
+                            <i class="bi bi-sliders"></i> Schedule Preferences
+                            <span v-if="hasPreferences()" class="badge isu-primary ms-2">Set</span>
+                        </h6>
+                        <button type="button" class="btn btn-outline-isu-primary btn-sm" @click="togglePreferences">
+                            <i :class="showPreferences ? 'bi bi-chevron-up' : 'bi bi-chevron-down'"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted d-block mb-3">
+                        <span v-if="!hasPreferences()">🎯 Customize your schedule priorities</span>
+                    </small>
+                    
+                    <transition name="slide-fade">
+                        <div v-if="showPreferences" class="mt-2">
+                            <div class="alert alert-info p-2 mb-3" style="font-size: 0.8rem;">
+                                <i class="bi bi-info-circle"></i> <strong>Note:</strong> These are preferences, not requirements. Generated schedules will be ordered by how well they match your preferences, with Schedule 1 being the best match. If no schedules match your exact preferences, the system will still generate the best available options.
+                            </div>
+                            <div class="card border border-primary-subtle bg-light">
+                                <div class="card-body p-3">
+                                    <div class="mb-3">
+                                        <label class="form-label small">Preferred Days</label>
+                                        <div>
+                                            <div class="form-check form-check-inline" v-for="day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']" :key="day">
+                                                <input class="form-check-input" type="checkbox" v-model="preferences.preferredDays" :value="day" :id="'pref' + day" @change="savePreferences">
+                                                <label class="form-check-label small" :for="'pref' + day">{{ day.substring(0,3) }}</label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label small">Time Preference</label>
+                                        <select v-model="preferences.timePreference" class="form-select form-select-sm" @change="savePreferences">
+                                            <option value="">No preference</option>
+                                            <option value="morning">Morning (8AM-12PM)</option>
+                                            <option value="afternoon">Afternoon (12PM-5PM)</option>
+                                            <option value="evening">Evening (5PM-9PM)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label small">Gap Between Classes</label>
+                                        <select v-model="preferences.gapPreference" class="form-select form-select-sm" @change="savePreferences">
+                                            <option value="none">No preference</option>
+                                            <option value="minimal">Minimal (0-15 min)</option>
+                                            <option value="short">Short (15-30 min)</option>
+                                            <option value="medium">Medium (30-60 min)</option>
+                                            <option value="long">Long (60+ min)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label small">Schedule Style</label>
+                                        <select v-model="preferences.scheduleStyle" class="form-select form-select-sm" @change="savePreferences">
+                                            <option value="">No preference</option>
+                                            <option value="compact">Compact (fewer days)</option>
+                                            <option value="spread">Spread out (more days)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-0">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" v-model="preferences.onlyOpenSeats" @change="savePreferences" id="onlyOpenSeats">
+                                            <label class="form-check-label small" for="onlyOpenSeats">
+                                                Only show schedules with open seats
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </transition>
+                </div>
+
+                <!-- Generate Schedules Button -->
+                <div v-if="courses.length > 0" class="mb-4">
+                    <button @click="generateSchedules" class="btn btn-isu-primary w-100">Generate Schedules</button>
+                </div>
+
+                <!-- Schedule Navigation - Desktop Only -->
+                <div v-if="scheduleCount > 0" class="mb-4 d-none d-lg-block">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <button @click="previousSchedule" class="btn btn-outline-primary btn-sm flex-fill">Previous</button>
+                        <button @click="nextSchedule" class="btn btn-outline-primary btn-sm flex-fill">Next</button>
+                    </div>
+                    <div class="d-flex gap-2 mb-2">
+                        <button @click="isCurrentScheduleSaved ? unsaveCurrentSchedule() : saveCurrentSchedule()" 
+                                :class="isCurrentScheduleSaved ? 'btn btn-outline-danger btn-sm w-100' : 'btn btn-success btn-sm w-100'">
+                            <i :class="isCurrentScheduleSaved ? 'bi bi-bookmark-dash' : 'bi bi-bookmark-plus'"></i> 
+                            {{ isCurrentScheduleSaved ? 'Unsave Schedule' : 'Save Current Schedule' }}
+                        </button>
+                    </div>
+                    <div class="text-center">
+                        <small class="text-muted">Schedule {{ currentScheduleIndex + 1 }} of {{ scheduleCount }}</small><br>
+                        <small class="text-muted">{{ hasPreferences() ? 'By preference match' : 'By quality score' }}</small>
+                    </div>
+                </div>
+
+                <!-- Course List in Sidebar -->
+                <div v-if="courses.length > 0">
+                    <h5 class="mb-3">Added Courses</h5>
+                    <div class="course-list">
+                        <div v-for="(course, index) in courses" :key="index" class="card mb-3">
+                            <div class="card-body p-3">
+                                <h6 class="card-title mb-2">{{ course.courseId }}</h6>
+                                <p class="card-text small text-muted mb-2">{{ course.description.substring(0, 100) }}{{ course.description.length > 100 ? '...' : '' }}</p>
+                                
+                                <div class="d-flex gap-1 mb-2">
+                                    <button class="btn btn-outline-info btn-sm flex-fill" @click="toggleSections(course)" style="font-size: 0.75rem;">
+                                        {{ course.showSections ? 'Hide Sections' : 'Sections' }}
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm flex-fill" @click="toggleInstructorPreferences(course)" style="font-size: 0.75rem;">
+                                        {{ course.showInstructorPrefs ? 'Hide Prefs' : 'Instructors' }}
+                                    </button>
+                                </div>
+
+                                <!-- Sections View -->
+                                <transition name="slide-fade">
+                                    <div v-if="course.showSections" class="sections-dropdown mb-2">
+                                        
+                                        <!-- Group sections by instructional format -->
+                                        <div v-for="formatGroup in getGroupedSections(course)" :key="formatGroup.format" class="mb-3">
+                                            <div class="fw-bold small mb-2" :class="formatGroup.format === 'Lab' ? 'text-warning' : 'text-primary'">
+                                                <i :class="formatGroup.format === 'Lab' ? 'bi bi-flask' : 'bi bi-mortarboard'"></i>
+                                                {{ formatGroup.format || 'Other' }} Sections
+                                                <span v-if="formatGroup.format === 'Lab'" class="badge bg-warning text-dark ms-1">Choose One</span>
+                                            </div>
+                                            
+                                            <div v-for="(section, sectionIndex) in formatGroup.sections" :key="sectionIndex" 
+                                                 class="section-item p-2 border rounded mb-2 isu-card" style="font-size: 0.8rem;">
+                                                
+                                                <!-- Lab sections use radio buttons -->
+                                                <div v-if="formatGroup.format === 'Lab'" class="form-check mb-2">
+                                                    <input class="form-check-input" type="radio" 
+                                                           :name="`lab-${course.courseId}`"
+                                                           :id="`section-${course.courseId}-${section.sectionNumber}`"
+                                                           :value="section.sectionNumber"
+                                                           v-model="course.selectedLabSection">
+                                                    <label class="form-check-label fw-bold" :for="`section-${course.courseId}-${section.sectionNumber}`">
+                                                        Section {{ section.sectionNumber }}
+                                                    </label>
+                                                </div>
+                                                <!-- Non-lab sections display normally -->
+                                                <div v-else class="fw-bold mb-1">Section {{ section.sectionNumber }}</div>
+                                                
+                                                <div><strong>Instructor:</strong> {{ section.instructor }}</div>
+                                                <div><strong>Time:</strong> {{ section.deliveryMode === 'Online' ? 'ONLINE' : section.timeStart + ' - ' + section.timeEnd }}</div>
+                                                <div><strong>Days:</strong> {{ section.daysOfTheWeek }}</div>
+                                                <div><strong>Seats:</strong> 
+                                                    <span :class="section.openSeats > 0 ? 'text-success' : 'text-danger'">
+                                                        {{ section.openSeats }} available
+                                                    </span>
+                                                </div>
+                                                <div v-if="section.location"><strong>Location:</strong> {{ section.location }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </transition>
+
+                                <!-- Instructor Preferences -->
+                                <transition name="slide-fade">
+                                    <div v-if="course.showInstructorPrefs" class="instructor-prefs mb-2">
+                                        <div class="small text-info mb-2">
+                                            <i class="bi bi-info-circle"></i> Focus on Lecture/Studio instructors for best teaching.
+                                        </div>
+                                        
+                                        <!-- Primary formats -->
+                                        <div v-if="getPrimaryInstructors(course).length > 0" class="mb-2">
+                                            <div class="fw-bold small text-primary">Primary</div>
+                                            <div v-for="instructor in getPrimaryInstructors(course)" :key="instructor" class="form-check form-check-sm">
+                                                <input class="form-check-input" type="checkbox" 
+                                                       :value="instructor" 
+                                                       :id="`instructor-${course.courseId}-${instructor}`"
+                                                       v-model="course.preferredInstructors"
+                                                       @change="saveInstructorPreferences(course)">
+                                                <label class="form-check-label small" :for="`instructor-${course.courseId}-${instructor}`">
+                                                    {{ instructor }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Other formats -->
+                                        <div v-if="getOtherInstructors(course).length > 0">
+                                            <div class="fw-bold small text-secondary">Other Instructors</div>
+                                            <div v-for="instructor in getOtherInstructors(course)" :key="instructor" class="form-check form-check-sm">
+                                                <input class="form-check-input" type="checkbox" 
+                                                       :value="instructor" 
+                                                       :id="`instructor-${course.courseId}-${instructor}`"
+                                                       v-model="course.preferredInstructors"
+                                                       @change="saveInstructorPreferences(course)">
+                                                <label class="form-check-label small" :for="`instructor-${course.courseId}-${instructor}`">
+                                                    {{ instructor }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                        
+                                        <div v-if="course.preferredInstructors && course.preferredInstructors.length > 0" class="mt-1">
+                                            <small class="text-success">
+                                                <i class="bi bi-check-circle"></i> 
+                                                {{ course.preferredInstructors.length }} selected
+                                            </small>
+                                        </div>
+                                    </div>
+                                </transition>
+
+                                <button @click="removeCourse(course)" class="btn btn-outline-danger btn-sm w-100" style="font-size: 0.75rem;">
+                                    Remove Course
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="courses.length === 0" class="text-center text-muted">
+                    <i class="bi bi-book" style="font-size: 2rem;"></i>
+                    <p class="mt-2 small">No courses added yet.<br>Add courses using the form above.</p>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="main-content flex-fill container-fluid" style="padding: 1.5rem; overflow-y: auto;">
+                <!-- Mobile Course Management (only visible on small screens) -->
+                <div class="d-lg-none mb-4">
+                    <h5 class="mb-3">Course Manager</h5>
+                    
+                    <!-- Academic Period Selection -->
+                    <div class="mb-3">
+                        <div class="mb-3">
+                            <label class="form-label small">Academic Period</label>
+                            <select v-model="currentAcademicPeriod" @change="changeAcademicPeriod" class="form-select form-select-sm" required>
+                                <option value="" disabled>Select Academic Period</option>
+                                <option v-for="period in academicPeriods" :key="period.id" :value="period.id">
+                                    {{ period.displayName }}
+                                </option>
+                            </select>
+                            <div class="form-text small">Changing period will clear courses.</div>
+                        </div>
+                    </div>
+
+                    <!-- Add Course Form -->
+                    <form @submit.prevent="addCourse" class="needs-validation mb-3" novalidate>
+                        <div class="mb-3">
+                            <label class="form-label small">Department</label>
+                            <div class="dropdown-container">
+                                <input
+                                    type="text"
+                                    v-model="newCourse.courseSubject"
+                                    @input="filterDepartments"
+                                    @focus="showDepartmentDropdown = true"
+                                    @blur="hideDepartmentDropdown"
+                                    @keydown="handleDepartmentKeyDown"
+                                    class="form-control form-control-sm"
+                                    :class="{'is-invalid': formSubmitted && !newCourse.courseSubject}"
+                                    placeholder="Type to search departments..."
+                                    autocomplete="off"
+                                    required>
+                                <div class="dropdown-content" v-show="showDepartmentDropdown && filteredDepartments.length > 0">
+                                    <div 
+                                        v-for="dept in filteredDepartments" 
+                                        :key="dept"
+                                        class="dropdown-option"
+                                        @mousedown="selectDepartment(dept)">
+                                        {{ dept }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="invalid-feedback">Please select a department.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small">Course ID</label>
+                            <input type="text"
+                                   id="course-id-input-mobile"
+                                   class="form-control form-control-sm"
+                                   :class="{'is-invalid': formSubmitted && !newCourse.courseNumber}"
+                                   v-model="newCourse.courseNumber"
+                                   placeholder="e.g., 2280"
+                                   required>
+                            <div class="invalid-feedback">Please enter a valid course ID.</div>
+                        </div>
+                        <button type="submit" class="btn btn-isu-secondary btn-sm w-100">Add Course</button>
+                    </form>
+
+                    <!-- Schedule Preferences - Mobile -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h6 class="mb-0" style="color: var(--isu-cardinal);">
+                                <i class="bi bi-sliders"></i> Schedule Preferences
+                                <span v-if="hasPreferences()" class="badge isu-primary ms-2">Set</span>
+                            </h6>
+                            <button type="button" class="btn btn-outline-isu-primary btn-sm" @click="togglePreferences">
+                                <i :class="showPreferences ? 'bi bi-chevron-up' : 'bi bi-chevron-down'"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted d-block mb-3">
+                            <span v-if="!hasPreferences()">🎯 Customize your schedule priorities</span>
+                        </small>
+                        
+                        <transition name="slide-fade">
+                            <div v-if="showPreferences" class="mt-2">
+                                <div class="alert alert-info p-2 mb-3" style="font-size: 0.8rem;">
+                                    <i class="bi bi-info-circle"></i> <strong>Note:</strong> These are preferences, not requirements. Generated schedules will be ordered by how well they match your preferences, with Schedule 1 being the best match. If no schedules match your exact preferences, the system will still generate the best available options.
+                                </div>
+                                <div class="card border border-primary-subtle bg-light">
+                                    <div class="card-body p-3">
+                                        <div class="mb-3">
+                                            <label class="form-label small">Preferred Days</label>
+                                            <div>
+                                                <div class="form-check form-check-inline" v-for="day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']" :key="day">
+                                                    <input class="form-check-input" type="checkbox" v-model="preferences.preferredDays" :value="day" :id="'mobPref' + day" @change="savePreferences">
+                                                    <label class="form-check-label small" :for="'mobPref' + day">{{ day.substring(0,3) }}</label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label small">Time Preference</label>
+                                            <select v-model="preferences.timePreference" class="form-select form-select-sm" @change="savePreferences">
+                                                <option value="">No preference</option>
+                                                <option value="morning">Morning (8AM-12PM)</option>
+                                                <option value="afternoon">Afternoon (12PM-5PM)</option>
+                                                <option value="evening">Evening (5PM-9PM)</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label small">Gap Between Classes</label>
+                                            <select v-model="preferences.gapPreference" class="form-select form-select-sm" @change="savePreferences">
+                                                <option value="none">No preference</option>
+                                                <option value="minimal">Minimal (0-15 min)</option>
+                                                <option value="short">Short (15-30 min)</option>
+                                                <option value="medium">Medium (30-60 min)</option>
+                                                <option value="long">Long (60+ min)</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label small">Schedule Style</label>
+                                            <select v-model="preferences.scheduleStyle" class="form-select form-select-sm" @change="savePreferences">
+                                                <option value="">No preference</option>
+                                                <option value="compact">Compact (fewer days)</option>
+                                                <option value="spread">Spread out (more days)</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-0">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" v-model="preferences.onlyOpenSeats" @change="savePreferences" id="mobOnlyOpenSeats">
+                                                <label class="form-check-label small" for="mobOnlyOpenSeats">
+                                                    Only show schedules with open seats
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </transition>
+                    </div>
+
+                    <!-- Generate Schedules Button -->
+                    <div v-if="courses.length > 0" class="mb-4">
+                        <button @click="generateSchedules" class="btn btn-isu-primary w-100">Generate Schedules</button>
+                    </div>
+
+                    <!-- Schedule Navigation - Desktop Only -->
+                    <div v-if="scheduleCount > 0" class="mb-4 d-none d-lg-block">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <button @click="previousSchedule" class="btn btn-outline-primary btn-sm flex-fill">Previous</button>
+                            <button @click="nextSchedule" class="btn btn-outline-primary btn-sm flex-fill">Next</button>
+                        </div>
+                        <div class="d-flex gap-2 mb-2">
+                            <button @click="isCurrentScheduleSaved ? unsaveCurrentSchedule() : saveCurrentSchedule()" 
+                                    :class="isCurrentScheduleSaved ? 'btn btn-outline-danger btn-sm w-100' : 'btn btn-success btn-sm w-100'">
+                                <i :class="isCurrentScheduleSaved ? 'bi bi-bookmark-dash' : 'bi bi-bookmark-plus'"></i> 
+                                {{ isCurrentScheduleSaved ? 'Unsave Schedule' : 'Save Current Schedule' }}
+                            </button>
+                        </div>
+                        <div class="text-center">
+                            <small class="text-muted">Schedule {{ currentScheduleIndex + 1 }} of {{ scheduleCount }}</small><br>
+                            <small class="text-muted">{{ hasPreferences() ? 'By preference match' : 'By quality score' }}</small>
+                        </div>
+                    </div>
+
+                    <!-- Mobile Course List -->
+                    <div v-if="courses.length > 0" class="mb-3">
+                        <h6 class="mb-3">Added Courses</h6>
+                        <div class="course-list">
+                            <div v-for="(course, index) in courses" :key="index" class="card mb-3">
+                                <div class="card-body p-3">
+                                    <h6 class="card-title mb-2">{{ course.courseId }}</h6>
+                                    <p class="card-text small text-muted mb-2">{{ course.description.substring(0, 100) }}{{ course.description.length > 100 ? '...' : '' }}</p>
+                                    
+                                    <div class="d-flex gap-1 mb-2">
+                                        <button class="btn btn-outline-info btn-sm flex-fill" @click="toggleSections(course)" style="font-size: 0.75rem;">
+                                            {{ course.showSections ? 'Hide Sections' : 'Sections' }}
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-sm flex-fill" @click="toggleInstructorPreferences(course)" style="font-size: 0.75rem;">
+                                            {{ course.showInstructorPrefs ? 'Hide Prefs' : 'Instructors' }}
+                                        </button>
+                                    </div>
+
+                                    <!-- Sections View -->
+                                    <transition name="slide-fade">
+                                        <div v-if="course.showSections" class="sections-dropdown mb-2">
+                                            
+                                            <!-- Group sections by instructional format -->
+                                            <div v-for="formatGroup in getGroupedSections(course)" :key="formatGroup.format" class="mb-3">
+                                                <div class="fw-bold small mb-2" :class="formatGroup.format === 'Lab' ? 'text-warning' : 'text-primary'">
+                                                    <i :class="formatGroup.format === 'Lab' ? 'bi bi-flask' : 'bi bi-mortarboard'"></i>
+                                                    {{ formatGroup.format || 'Other' }} Sections
+                                                    <span v-if="formatGroup.format === 'Lab'" class="badge bg-warning text-dark ms-1">Choose One</span>
+                                                </div>
+                                                
+                                                <div v-for="(section, sectionIndex) in formatGroup.sections" :key="sectionIndex" 
+                                                     class="section-item p-2 border rounded mb-2 isu-card" style="font-size: 0.8rem;">
+                                                    
+                                                    <!-- Lab sections use radio buttons -->
+                                                    <div v-if="formatGroup.format === 'Lab'" class="form-check mb-2">
+                                                        <input class="form-check-input" type="radio" 
+                                                               :name="`lab-${course.courseId}`"
+                                                               :id="`mobSection-${course.courseId}-${section.sectionNumber}`"
+                                                               :value="section.sectionNumber"
+                                                               v-model="course.selectedLabSection">
+                                                        <label class="form-check-label fw-bold" :for="`mobSection-${course.courseId}-${section.sectionNumber}`">
+                                                            Section {{ section.sectionNumber }}
+                                                        </label>
+                                                    </div>
+                                                    <!-- Non-lab sections display normally -->
+                                                    <div v-else class="fw-bold mb-1">Section {{ section.sectionNumber }}</div>
+                                                    
+                                                    <div><strong>Instructor:</strong> {{ section.instructor }}</div>
+                                                    <div><strong>Time:</strong> {{ section.deliveryMode === 'Online' ? 'ONLINE' : section.timeStart + ' - ' + section.timeEnd }}</div>
+                                                    <div><strong>Days:</strong> {{ section.daysOfTheWeek }}</div>
+                                                    <div><strong>Seats:</strong> 
+                                                        <span :class="section.openSeats > 0 ? 'text-success' : 'text-danger'">
+                                                            {{ section.openSeats }} available
+                                                        </span>
+                                                    </div>
+                                                    <div v-if="section.location"><strong>Location:</strong> {{ section.location }}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </transition>
+
+                                    <!-- Instructor Preferences -->
+                                    <transition name="slide-fade">
+                                        <div v-if="course.showInstructorPrefs" class="instructor-prefs mb-2">
+                                            <div class="small text-info mb-2">
+                                                <i class="bi bi-info-circle"></i> Focus on Lecture/Studio instructors for best teaching.
+                                            </div>
+                                            
+                                            <!-- Primary formats -->
+                                            <div v-if="getPrimaryInstructors(course).length > 0" class="mb-2">
+                                                <div class="fw-bold small text-primary">Primary</div>
+                                                <div v-for="instructor in getPrimaryInstructors(course)" :key="instructor" class="form-check form-check-sm">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           :value="instructor" 
+                                                           :id="`mobInstructor-${course.courseId}-${instructor}`"
+                                                           v-model="course.preferredInstructors"
+                                                           @change="saveInstructorPreferences(course)">
+                                                    <label class="form-check-label small" :for="`mobInstructor-${course.courseId}-${instructor}`">
+                                                        {{ instructor }}
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Other formats -->
+                                            <div v-if="getOtherInstructors(course).length > 0">
+                                                <div class="fw-bold small text-secondary">Other Instructors</div>
+                                                <div v-for="instructor in getOtherInstructors(course)" :key="instructor" class="form-check form-check-sm">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           :value="instructor" 
+                                                           :id="`mobInstructor-${course.courseId}-${instructor}`"
+                                                           v-model="course.preferredInstructors"
+                                                           @change="saveInstructorPreferences(course)">
+                                                    <label class="form-check-label small" :for="`mobInstructor-${course.courseId}-${instructor}`">
+                                                        {{ instructor }}
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            
+                                            <div v-if="course.preferredInstructors && course.preferredInstructors.length > 0" class="mt-1">
+                                                <small class="text-success">
+                                                    <i class="bi bi-check-circle"></i> 
+                                                    {{ course.preferredInstructors.length }} selected
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </transition>
+
+                                    <button @click="removeCourse(course)" class="btn btn-outline-danger btn-sm w-100" style="font-size: 0.75rem;">
+                                        Remove Course
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="courses.length === 0" class="text-center text-muted">
+                        <i class="bi bi-book" style="font-size: 2rem;"></i>
+                        <p class="mt-2 small">No courses added yet.<br>Add courses using the form above.</p>
+                    </div>
+                </div>
+
+                <!-- Mobile Schedule Navigation (above calendar) -->
+                <div v-if="scheduleCount > 0" class="d-lg-none mb-4">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <button @click="previousSchedule" class="btn btn-outline-primary btn-sm flex-fill">Previous</button>
+                        <button @click="nextSchedule" class="btn btn-outline-primary btn-sm flex-fill">Next</button>
+                    </div>
+                    <div class="d-flex gap-2 mb-2">
+                        <button @click="isCurrentScheduleSaved ? unsaveCurrentSchedule() : saveCurrentSchedule()" 
+                                :class="isCurrentScheduleSaved ? 'btn btn-outline-danger btn-sm w-100' : 'btn btn-success btn-sm w-100'">
+                            <i :class="isCurrentScheduleSaved ? 'bi bi-bookmark-dash' : 'bi bi-bookmark-plus'"></i> 
+                            {{ isCurrentScheduleSaved ? 'Unsave Schedule' : 'Save Current Schedule' }}
+                        </button>
+                    </div>
+                    <div class="text-center">
+                        <small class="text-muted">Schedule {{ currentScheduleIndex + 1 }} of {{ scheduleCount }}</small><br>
+                        <small class="text-muted">{{ hasPreferences() ? 'By preference match' : 'By quality score' }}</small>
+                    </div>
+                </div>
+
+                <!-- Enhanced Responsive Calendar -->
+                <div class="calendar-section mb-5">
+                    <div class="custom-calendar responsive-calendar">
+                        <div class="calendar-loading" v-if="calendarLoading">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div v-if="!calendarLoading">
+                            <!-- Schedule Header inside calendar -->
+                            <div class="d-flex justify-content-between align-items-center mb-3 px-3 pt-3" v-if="selectedSections.length > 0">
+                                <h4 class="mb-0">Schedule</h4>
+                                <div class="calendar-summary-simple">
+                                    <span class="me-3"><i class="bi bi-journal-bookmark me-1"></i>{{ getUniqueCoursesCount() }} Course{{ getUniqueCoursesCount() !== 1 ? 's' : '' }}</span>
+                                    <span><i class="bi bi-award me-1"></i>{{ getTotalScheduleCredits() }} Credits</span>
+                                </div>
+                            </div>
+                            
+                            <div class="calendar-header" :style="`grid-template-columns: var(--time-col-width) repeat(${activeDays.length}, 1fr);`">
+                                <div class="calendar-header-cell"></div>
+                                <div v-for="day in activeDays" :key="day" class="calendar-header-cell calendar-weekday">
+                                    <span class="weekday-full">{{ day }}</span>
+                                    <span class="weekday-short">{{ day.substring(0, 3) }}</span>
+                                </div>
+                            </div>
+                            <div class="calendar-body calendar-dynamic-height" v-if="selectedSections.length > 0">
+                                <div class="calendar-grid isu-calendar" :style="dynamicGridStyle">
+                                    <!-- Time column -->
+                                    <div class="time-column">
+                                        <div v-for="hour in timeSlots" :key="hour" class="time-slot">
+                                            {{ formatHour(hour) }}
+                                        </div>
+                                    </div>
+                                    <!-- Day columns -->
+                                    <div v-for="day in activeDays" :key="day" class="day-column">
+                                        <div v-for="event in getEventsForDay(day)"
+                                             :key="event.id"
+                                             class="calendar-event"
+                                             :class="['event-color-' + event.colorIndex, event.sizeClass]"
+                                             :style="getEventStyle(event)"
+                                             @click="handleCourseClick($event, event)"
+                                             style="cursor: pointer;"
+                                             title="Click to view course details">
+                                            <div class="event-title">{{ event.courseId }}</div>
+                                            <div class="event-time">{{ event.displayTime }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-else class="calendar-empty">
+                                <div>
+                                    <i class="bi bi-calendar-x" style="font-size: 3rem; color: #dee2e6;"></i>
+                                    <p class="mt-3">No schedule selected. Add courses and generate schedules to view your calendar.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current Schedule by Day -->
+                <div class="current-schedule-by-day mt-4" v-if="selectedSections.length > 0">
+                    <h4 class="mb-3">Current Schedule Details</h4>
+                    <div v-if="daysWithClasses.length === 0" class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> All classes are online or have flexible schedules.
+                    </div>
+                    <div v-else class="schedule-days-grid">
+                        <div v-for="day in daysWithClasses" :key="day" class="day-schedule-card">
+                            <div class="day-header">
+                                <h6 class="day-name">{{ day }}</h6>
+                                <span class="course-count">{{ getClassesForDay(day).length }} class{{ getClassesForDay(day).length !== 1 ? 'es' : '' }}</span>
+                            </div>
+                            <div class="day-classes">
+                                <div v-for="section in getClassesForDay(day)" :key="section.courseId + section.sectionNumber" class="class-item">
+                                    <div class="class-info">
+                                        <div class="class-header">
+                                            <span class="course-name">{{ section.courseId }} - {{ section.sectionNumber }}</span>
+                                            <span class="credits-badge">{{ section.credits || '0' }}</span>
+                                        </div>
+                                        <div class="class-time">{{ section.deliveryMode === 'Online' ? 'ONLINE' : section.timeStart + ' - ' + section.timeEnd }}</div>
+                                        <div class="class-details">
+                                            <span class="instructor">{{ section.instructor }}</span>
+                                            <span class="location">{{ section.location || 'TBA' }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="class-actions">
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                @click="removeCourse(section.courseId)"
+                                                title="Remove course">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div v-if="selectedSections.length === 0" class="alert alert-info text-center">
+                    <i class="bi bi-calendar-plus" style="font-size: 2rem; color: #0dcaf0;"></i>
+                    <p class="mt-2 mb-0">No schedule selected. Generate schedules to view your enrolled sections.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Redesigned Saved Schedules Modal -->
+        <div v-if="showSavedSchedules" 
+             class="saved-schedules-overlay"
+             @click="closeSavedSchedules">
+            <div class="saved-schedules-container" @click.stop>
+                <!-- Modern Header -->
+                <div class="saved-schedules-header">
+                    <div class="header-content">
+                        <div class="header-icon">
+                            <i class="bi bi-bookmarks-fill"></i>
+                        </div>
+                        <div class="header-text">
+                            <h3 class="header-title">My Saved Schedules</h3>
+                            <p class="header-subtitle">{{ savedSchedules.length }} schedule{{ savedSchedules.length !== 1 ? 's' : '' }} saved</p>
+                        </div>
+                    </div>
+                    <button type="button" class="close-button" @click="closeSavedSchedules">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+
+                <!-- Content Area -->
+                <div class="saved-schedules-body">
+                    <!-- Empty State -->
+                    <div v-if="savedSchedules.length === 0" class="empty-state">
+                        <div class="empty-icon">
+                            <i class="bi bi-bookmark-star"></i>
+                        </div>
+                        <h4 class="empty-title">No Saved Schedules Yet</h4>
+                        <p class="empty-description">Save your favorite schedules to access them quickly later. Perfect schedules are just a click away!</p>
+                        <button @click="closeSavedSchedules" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Start Saving Schedules
+                        </button>
+                    </div>
+
+                    <!-- Schedules Grid -->
+                    <div v-else class="schedules-grid">
+                        <div v-for="(schedule, index) in savedSchedules" :key="schedule.id" class="schedule-card">
+                            <div class="schedule-card-header">
+                                <div class="schedule-info">
+                                    <h5 class="schedule-title">{{ schedule.name }}</h5>
+                                    <p class="schedule-date">
+                                        <i class="bi bi-clock"></i>
+                                        {{ formatDate(schedule.savedAt) }}
+                                    </p>
+                                </div>
+                                <button @click="deleteSavedSchedule(index)" 
+                                        class="action-btn delete-btn"
+                                        title="Delete this schedule">
+                                    <i class="bi bi-trash3-fill"></i>
+                                </button>
+                            </div>
+
+                            <div class="schedule-card-body">
+                                <!-- Course Count and Credits -->
+                                <div class="schedule-stats">
+                                    <div class="stat">
+                                        <i class="bi bi-journal-bookmark"></i>
+                                        <span>{{ schedule.courses.length }} Course{{ schedule.courses.length !== 1 ? 's' : '' }}</span>
+                                    </div>
+                                    <div class="stat">
+                                        <i class="bi bi-mortarboard"></i>
+                                        <span>{{ getTotalCredits(schedule) }} Credits</span>
+                                    </div>
+                                </div>
+
+                                <!-- Course Pills -->
+                                <div class="courses-container">
+                                    <div class="courses-label">Courses:</div>
+                                    <div class="courses-pills">
+                                        <span v-for="course in schedule.courses" 
+                                              :key="course" 
+                                              class="course-pill">
+                                            {{ course }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Quick Actions -->
+                                <div class="quick-actions">
+                                    <button @click="loadSavedSchedule(schedule)" class="primary-action">
+                                        <i class="bi bi-arrow-up-circle"></i>
+                                        Load Schedule
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interactive Course Details Modal/Bottom Sheet -->
+        <div v-if="selectedCourseDetail" 
+             class="course-details-overlay"
+             :class="{ show: showCourseDetails }"
+             @click="closeCourseDetails">
+            
+            <!-- Desktop Modal -->
+            <div class="course-details-modal" @click.stop>
+                <div class="course-details-header">
+                    <div>
+                        <h2 class="course-details-title">{{ selectedCourseDetail.courseId }}</h2>
+                        <p class="mb-0 opacity-75">{{ selectedCourseDetail.title || selectedCourseDetail.description }}</p>
+                    </div>
+                    <button type="button" class="course-details-close" @click="closeCourseDetails">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+                <div class="course-details-content">
+                    <div class="course-detail-item">
+                        <i class="course-detail-icon bi bi-hash"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Section</div>
+                            <div class="course-detail-value">{{ selectedCourseDetail.sectionNumber }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="course-detail-item" v-if="selectedCourseDetail.credits">
+                        <i class="course-detail-icon bi bi-award"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Credits</div>
+                            <div class="course-detail-value highlight">{{ selectedCourseDetail.credits }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="course-detail-item">
+                        <i class="course-detail-icon bi bi-person"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Instructor</div>
+                            <div class="course-detail-value">{{ selectedCourseDetail.instructor || 'TBA' }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="course-detail-item">
+                        <i class="course-detail-icon bi bi-clock"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Meeting Times</div>
+                            <div class="course-detail-value">
+                                {{ selectedCourseDetail.daysOfTheWeek === 'N/A' ? 'Online/Flexible' : selectedCourseDetail.daysOfTheWeek }}
+                                <br>
+                                <span v-if="selectedCourseDetail.timeStart && selectedCourseDetail.timeStart !== 'N/A'">
+                                    {{ selectedCourseDetail.timeStart }} - {{ selectedCourseDetail.timeEnd }}
+                                </span>
+                                <span v-else>Flexible Schedule</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="course-detail-item" v-if="selectedCourseDetail.location">
+                        <i class="course-detail-icon bi bi-geo-alt"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Location</div>
+                            <div class="course-detail-value">{{ selectedCourseDetail.location }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="course-detail-item" v-if="selectedCourseDetail.deliveryMode">
+                        <i class="course-detail-icon bi bi-globe"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Delivery Mode</div>
+                            <div class="course-detail-value">
+                                <span class="course-status-badge" :class="{
+                                    'online': selectedCourseDetail.deliveryMode === 'Online',
+                                    'in-person': selectedCourseDetail.deliveryMode === 'In Person',
+                                    'hybrid': selectedCourseDetail.deliveryMode === 'Hybrid'
+                                }">
+                                    <i :class="{
+                                        'bi bi-wifi': selectedCourseDetail.deliveryMode === 'Online',
+                                        'bi bi-building': selectedCourseDetail.deliveryMode === 'In Person',
+                                        'bi bi-hybrid': selectedCourseDetail.deliveryMode === 'Hybrid'
+                                    }"></i>
+                                    {{ selectedCourseDetail.deliveryMode }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="course-detail-item" v-if="selectedCourseDetail.instructionalFormat">
+                        <i class="course-detail-icon bi bi-mortarboard"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Format</div>
+                            <div class="course-detail-value">{{ selectedCourseDetail.instructionalFormat }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="course-detail-item" v-if="selectedCourseDetail.openSeats !== undefined">
+                        <i class="course-detail-icon bi bi-people"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Available Seats</div>
+                            <div class="course-detail-value" :class="{ 
+                                'text-success': selectedCourseDetail.openSeats > 0, 
+                                'text-danger': selectedCourseDetail.openSeats <= 0 
+                            }">
+                                {{ selectedCourseDetail.openSeats }} seats available
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Mobile Bottom Sheet -->
+            <div class="course-details-bottom-sheet" 
+                 :class="{ show: showCourseDetails }" 
+                 @click.stop>
+                <div class="course-details-header">
+                    <div>
+                        <h2 class="course-details-title">{{ selectedCourseDetail.courseId }}</h2>
+                        <p class="mb-0 opacity-75">{{ selectedCourseDetail.title || selectedCourseDetail.description }}</p>
+                    </div>
+                    <button type="button" class="course-details-close" @click="closeCourseDetails">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+                <!-- Same content as modal - Vue will render the appropriate version -->
+                <div class="course-details-content">
+                    <div class="course-detail-item">
+                        <i class="course-detail-icon bi bi-hash"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Section</div>
+                            <div class="course-detail-value">{{ selectedCourseDetail.sectionNumber }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="course-detail-item" v-if="selectedCourseDetail.credits">
+                        <i class="course-detail-icon bi bi-award"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Credits</div>
+                            <div class="course-detail-value highlight">{{ selectedCourseDetail.credits }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="course-detail-item">
+                        <i class="course-detail-icon bi bi-person"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Instructor</div>
+                            <div class="course-detail-value">{{ selectedCourseDetail.instructor || 'TBA' }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="course-detail-item">
+                        <i class="course-detail-icon bi bi-clock"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Meeting Times</div>
+                            <div class="course-detail-value">
+                                {{ selectedCourseDetail.daysOfTheWeek === 'N/A' ? 'Online/Flexible' : selectedCourseDetail.daysOfTheWeek }}
+                                <br>
+                                <span v-if="selectedCourseDetail.timeStart && selectedCourseDetail.timeStart !== 'N/A'">
+                                    {{ selectedCourseDetail.timeStart }} - {{ selectedCourseDetail.timeEnd }}
+                                </span>
+                                <span v-else>Flexible Schedule</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="course-detail-item" v-if="selectedCourseDetail.location">
+                        <i class="course-detail-icon bi bi-geo-alt"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Location</div>
+                            <div class="course-detail-value">{{ selectedCourseDetail.location }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="course-detail-item" v-if="selectedCourseDetail.deliveryMode">
+                        <i class="course-detail-icon bi bi-globe"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Delivery Mode</div>
+                            <div class="course-detail-value">
+                                <span class="course-status-badge" :class="{
+                                    'online': selectedCourseDetail.deliveryMode === 'Online',
+                                    'in-person': selectedCourseDetail.deliveryMode === 'In Person',
+                                    'hybrid': selectedCourseDetail.deliveryMode === 'Hybrid'
+                                }">
+                                    <i :class="{
+                                        'bi bi-wifi': selectedCourseDetail.deliveryMode === 'Online',
+                                        'bi bi-building': selectedCourseDetail.deliveryMode === 'In Person',
+                                        'bi bi-hybrid': selectedCourseDetail.deliveryMode === 'Hybrid'
+                                    }"></i>
+                                    {{ selectedCourseDetail.deliveryMode }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="course-detail-item" v-if="selectedCourseDetail.instructionalFormat">
+                        <i class="course-detail-icon bi bi-mortarboard"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Format</div>
+                            <div class="course-detail-value">{{ selectedCourseDetail.instructionalFormat }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="course-detail-item" v-if="selectedCourseDetail.openSeats !== undefined">
+                        <i class="course-detail-icon bi bi-people"></i>
+                        <div class="course-detail-content">
+                            <div class="course-detail-label">Available Seats</div>
+                            <div class="course-detail-value" :class="{ 
+                                'text-success': selectedCourseDetail.openSeats > 0, 
+                                'text-danger': selectedCourseDetail.openSeats <= 0 
+                            }">
+                                {{ selectedCourseDetail.openSeats }} seats available
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer mt-auto">
+        <div class="container">
+            <p class="mb-0">© 2024 CyPlan. All rights reserved.</p>
+            <p class="mb-0">Not directly affiliated with Iowa State University</p>
+            <p class="mb-0">Created by Jeremiah Baccam, Luke Patterson, Jared Cheney</p>
+        </div>
+    </footer>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

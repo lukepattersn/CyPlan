@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ISU Brand Colors */
+:root {
+  --brand-color: #C8102E;
+  --brand-gold: #F1BE48;
+  --brand-gray: #524727;
+}
+
+/* Custom component classes that complement Tailwind */
+@layer components {
+  .btn-isu {
+    @apply bg-isu-cardinal text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors;
+  }
+
+  .btn-isu-outline {
+    @apply border-2 border-isu-cardinal text-isu-cardinal px-4 py-2 rounded-lg font-semibold hover:bg-isu-cardinal hover:text-white transition-colors;
+  }
+}
+
+/* Vue Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: transform 0.3s ease;
+}
+
+.slide-up-enter-from {
+  transform: translateY(100%);
+}
+
+.slide-up-leave-to {
+  transform: translateY(100%);
+}
+
+/* Touch-friendly enhancements */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  a,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

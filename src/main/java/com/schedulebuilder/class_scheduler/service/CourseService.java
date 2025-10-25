@@ -3,6 +3,7 @@ package com.schedulebuilder.class_scheduler.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.schedulebuilder.class_scheduler.model.Course;
 import com.schedulebuilder.class_scheduler.model.Section;
+import com.schedulebuilder.class_scheduler.model.SectionType;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -51,12 +52,16 @@ public class CourseService {
         }
         
         try {
-            String courseId = courseNode.path("courseId").asText("");
+            // Try "courseNumber" first, then fall back to "number"
+            String courseId = courseNode.path("courseNumber").asText("");
+            if (courseId.isEmpty()) {
+                courseId = courseNode.path("number").asText("");
+            }
             String courseName = courseNode.path("title").asText("");
             String description = courseNode.path("description").asText("");
-            
+
             if (courseId.isEmpty()) {
-                logger.log(Level.WARNING, "Course missing courseId, skipping");
+                logger.log(Level.WARNING, "Course missing courseNumber/number, skipping");
                 return null;
             }
             
@@ -118,19 +123,62 @@ public class CourseService {
             // Extract other fields with defaults
             String instructionalFormat = sectionNode.path("instructionalFormat").asText("Unknown");
             String location = sectionNode.path("locations").asText("TBA");
-            String courseId = sectionNode.path("courseId").asText("");
+            // Try courseNumber first, then fall back to courseId
+            String courseId = sectionNode.path("courseNumber").asText("");
+            if (courseId.isEmpty()) {
+                courseId = sectionNode.path("courseId").asText("");
+            }
             String sectionNumber = sectionNode.path("number").asText("");
             String instructors = sectionNode.path("instructors").asText("TBA");
             String deliveryMode = sectionNode.path("deliveryMode").asText("In-Person");
             int openSeats = sectionNode.path("openSeats").asInt(0);
-            
+            String credits = sectionNode.path("credits").asText("0");
+
             // Validate required fields
             if (courseId.isEmpty() || sectionNumber.isEmpty()) {
                 logger.log(Level.WARNING, "Section missing required fields: courseId=" + courseId + ", number=" + sectionNumber);
                 return null;
             }
 
-            return new Section(
+            // Handle sections with missing time/day information
+            boolean hasValidDays = daysOfTheWeek != null && !daysOfTheWeek.equals("N/A") && !daysOfTheWeek.isEmpty();
+            boolean hasValidTime = timeStart != null && !timeStart.equals("N/A") && timeEnd != null && !timeEnd.equals("N/A");
+            boolean isOnline = deliveryMode != null && deliveryMode.equalsIgnoreCase("Online");
+
+            // Determine section type
+            SectionType sectionType;
+
+            // If online course, set appropriate values
+            if (isOnline) {
+                sectionType = SectionType.ONLINE;
+                if (!hasValidDays) {
+                    daysOfTheWeek = "Online";
+                    logger.log(Level.INFO, "Section " + courseId + " Section " + sectionNumber + " is online - setting days to Online");
+                }
+                if (!hasValidTime) {
+                    timeStart = "Online";
+                    timeEnd = "Online";
+                    logger.log(Level.INFO, "Section " + courseId + " Section " + sectionNumber + " is online - setting times to Online");
+                }
+            } else if (!hasValidDays || !hasValidTime) {
+                // For in-person courses with missing data, set to TBD
+                sectionType = SectionType.TBD;
+                if (!hasValidDays) {
+                    daysOfTheWeek = "TBD";
+                    logger.log(Level.INFO, "Section " + courseId + " Section " + sectionNumber + " has no meeting days - setting to TBD");
+                }
+
+                if (!hasValidTime) {
+                    timeStart = "TBD";
+                    timeEnd = "TBD";
+                    logger.log(Level.INFO, "Section " + courseId + " Section " + sectionNumber + " has no meeting times - setting to TBD");
+                }
+            } else {
+                // Valid in-person section with complete schedule information
+                sectionType = SectionType.IN_PERSON;
+            }
+
+            Section section = new Section(
                     daysOfTheWeek,
                     openSeats,
                     instructors,
@@ -140,8 +188,14 @@ public class CourseService {
                     sectionNumber,
                     instructionalFormat,
                     location,
-                    deliveryMode
+                    deliveryMode,
+                    credits
             );
+
+            // Set the section type
+            section.setSectionType(sectionType);
+
+            return section;
         } catch (Exception e) {
             logger.log(Level.WARNING, "Error parsing section", e);
             return null;
@@ -160,13 +214,13 @@ public class CourseService {
         
         try {
             String converted = daysOfTheWeek.trim()
-                    .replace("M", "Monday,")
-                    .replace("T", "Tuesday,")
-                    .replace("W", "Wednesday,")
-                    .replace("R", "Thursday,")
-                    .replace("F", "Friday,")
-                    .replace("S", "Saturday,")
-                    .replace("U", "Sunday,")
+                    .replace("M", "Mon,")
+                    .replace("T", "Tue,")
+                    .replace("W", "Wed,")
+                    .replace("R", "Thu,")
+                    .replace("F", "Fri,")
+                    .replace("S", "Sat,")
+                    .replace("U", "Sun,")
                     .replaceAll(",+$", ""); // Remove trailing comma
             
             return converted.isEmpty() ? "Online" : converted;

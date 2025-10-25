@@ -103,7 +103,7 @@ public class ApiService {
 
     // Fetches all departments for the given academic period
     public String fetchDepartments(String academicPeriod) {
-        String url = "https://api.classes.iastate.edu/api/departments?academicPeriod=" + academicPeriod;
+        String url = "https://api.classes.iastate.edu/api/course-subjects?academicPeriod=" + academicPeriod;
         try {
             return restTemplate.getForObject(url, String.class);
         } catch (Exception e) {
@@ -118,6 +118,11 @@ public class ApiService {
         String url = "https://api.classes.iastate.edu/api/courses/search";
         CourseSearchRequest requestPayload = new CourseSearchRequest(academicPeriodId, department, courseId);
 
+        // DEBUG: Log what we're sending
+        System.out.println("=== API Request Debug ===");
+        System.out.println("URL: " + url);
+        System.out.println("Payload: " + requestPayload.toString());
+
         HttpHeaders headers = new HttpHeaders();
         headers.set("Content-Type", "application/json");
 
@@ -125,6 +130,7 @@ public class ApiService {
 
         try {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
+            System.out.println("API Response: " + (response.getBody() != null ? response.getBody().substring(0, Math.min(200, response.getBody().length())) : "null"));
             return response.getBody();
         } catch (Exception e) {
             System.err.println("Error fetching courses from API: " + e.getMessage());
@@ -132,4 +138,5 @@ public class ApiService {
             return "{\"error\": \"Error fetching courses. Please try again later.\"}";
         }
     }
+
 }

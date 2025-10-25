@@ -1,23 +1,58 @@
 package com.schedulebuilder.class_scheduler.model;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * This class represents the data we send to the Iowa State University API
  * when searching for courses. This is called a "payload object" because it
  * contains the data (payload) that will be sent in the HTTP POST request.
  */
+@JsonInclude(JsonInclude.Include.ALWAYS)
 public class CourseSearchRequest {
+    @JsonProperty("academicPeriodId")
     private String academicPeriodId;
-    private String department;
-    private String courseId;
+
+    @JsonProperty("courseSubject")
+    private String courseSubject;
+
+    @JsonProperty("courseNumber")
+    private String courseNumber;
+
+    @JsonProperty("level")
     private String level;
+
+    @JsonProperty("requirement")
     private String requirement;
+
+    @JsonProperty("instructor")
     private String instructor;
+
+    @JsonProperty("semesterTag")
+    private String semesterTag;
+
+    @JsonProperty("credits")
+    private String credits;
+
+    @JsonProperty("openSeats")
     private Boolean openSeats;
+
+    @JsonProperty("daysOfTheWeek")
     private String[] daysOfTheWeek;
+
+    @JsonProperty("sectionStartDate")
     private String sectionStartDate;
+
+    @JsonProperty("sectionEndDate")
     private String sectionEndDate;
+
+    @JsonProperty("title")
     private String title;
+
+    @JsonProperty("deliveryMode")
     private String deliveryMode;
+
+    @JsonProperty("allowedGradingBases")
     private String[] allowedGradingBases;
 
     // Constructors
@@ -25,13 +60,15 @@ public class CourseSearchRequest {
         // Default constructor for Spring Boot deserialization
     }
 
-    public CourseSearchRequest(String academicPeriodId, String department, String courseId) {
+    public CourseSearchRequest(String academicPeriodId, String courseSubject, String courseNumber) {
         this.academicPeriodId = academicPeriodId;
-        this.department = department;
-        this.courseId = courseId;
+        this.courseSubject = courseSubject;
+        this.courseNumber = courseNumber;
         this.level = null;
         this.requirement = null;
         this.instructor = "";
+        this.semesterTag = null;
+        this.credits = null;
         this.openSeats = false;
         this.daysOfTheWeek = new String[0];
         this.sectionStartDate = null;
@@ -50,20 +87,20 @@ public class CourseSearchRequest {
         this.academicPeriodId = academicPeriodId;
     }
 
-    public String getDepartment() {
-        return department;
+    public String getCourseSubject() {
+        return courseSubject;
     }
 
-    public void setDepartment(String department) {
-        this.department = department;
+    public void setCourseSubject(String courseSubject) {
+        this.courseSubject = courseSubject;
     }
 
-    public String getCourseId() {
-        return courseId;
+    public String getCourseNumber() {
+        return courseNumber;
     }
 
-    public void setCourseId(String courseId) {
-        this.courseId = courseId;
+    public void setCourseNumber(String courseNumber) {
+        this.courseNumber = courseNumber;
     }
 
     public String getLevel() {
@@ -88,6 +125,22 @@ public class CourseSearchRequest {
 
     public void setInstructor(String instructor) {
         this.instructor = instructor;
+    }
+
+    public String getSemesterTag() {
+        return semesterTag;
+    }
+
+    public void setSemesterTag(String semesterTag) {
+        this.semesterTag = semesterTag;
+    }
+
+    public String getCredits() {
+        return credits;
+    }
+
+    public void setCredits(String credits) {
+        this.credits = credits;
     }
 
     public Boolean getOpenSeats() {
@@ -150,11 +203,13 @@ public class CourseSearchRequest {
     public String toString() {
         return "CourseSearchRequest{" +
                 "academicPeriodId='" + academicPeriodId + '\'' +
-                ", department='" + department + '\'' +
-                ", courseId='" + courseId + '\'' +
+                ", courseSubject='" + courseSubject + '\'' +
+                ", courseNumber='" + courseNumber + '\'' +
                 ", level='" + level + '\'' +
                 ", requirement='" + requirement + '\'' +
                 ", instructor='" + instructor + '\'' +
+                ", semesterTag='" + semesterTag + '\'' +
+                ", credits='" + credits + '\'' +
                 ", openSeats=" + openSeats +
                 ", daysOfTheWeek=" + (daysOfTheWeek != null ? String.join(", ", daysOfTheWeek) : "[]") +
                 ", sectionStartDate='" + sectionStartDate + '\'' +
